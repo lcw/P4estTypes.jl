@@ -31,4 +31,12 @@ function __init__()
     end
 end
 
+using SnoopPrecompile
+@precompile_setup begin
+    @precompile_all_calls begin
+        MPI.Initialized() || MPI.Init()
+        p = pxest(brick(3, 4))
+    end
+end
+
 end # module
