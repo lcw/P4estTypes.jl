@@ -42,6 +42,8 @@ function pxest(
     init_function = C_NULL,
     user_pointer = C_NULL,
 )
+    MPI.Initialized() || MPI.Init()
+
     pointer = p4est_new_ext(
         comm,
         connectivity,
@@ -65,6 +67,8 @@ function pxest(
     init_function = C_NULL,
     user_pointer = C_NULL,
 )
+    MPI.Initialized() || MPI.Init()
+
     pointer = p8est_new_ext(
         comm,
         connectivity,
