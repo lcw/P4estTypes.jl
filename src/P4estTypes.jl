@@ -9,6 +9,7 @@ using SparseArrays
 export Connectivity, Locidx, Gloidx
 
 export refine, reduce!, complete!, brick, pxest, local_size, global_size, global_axes
+export iterateforest
 
 include("sc.jl")
 

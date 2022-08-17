@@ -125,3 +125,59 @@ function Base.getindex(p::Pxest{X}, i::Int) where {X}
 end
 
 Base.IndexStyle(::Pxest{X}) where {X} = IndexLinear()
+
+mutable struct IterateData{P,G,U}
+    pxest::P
+    ghost_layer::G
+    user_data::U
+end
+
+function _p4est_volume_callback_generate(volume_callback)
+    Ccallback, _ =
+        Cfunction{Cvoid,Tuple{Ptr{p4est_iter_volume_info_t},Ptr{Cvoid}}}() do info,
+        user_data
+            quadrant = Quadrant{4,Ptr{p4est_quadrant}}(info.quad)
+            data = unsafe_pointer_to_objref(user_data)
+            volume_callback(
+                data[].pxest,
+                data[].ghost_layer,
+                data[].user_data,
+                quadrant,
+                info.quadid,
+                info.treeid,
+            )
+            return
+        end
+
+    return Ccallback
+end
+
+function iterateforest(
+    p::Pxest{4};
+    user_data = nothing,
+    ghost_layer = nothing,
+    volume_callback = nothing,
+    face_callback = nothing,
+    corner_callback = nothing,
+)
+
+    data = Ref(IterateData(pxest, ghost_layer, user_data))
+    _volume_callback =
+        isnothing(volume_callback) ? C_NULL :
+        _p4est_volume_callback_generate(volume_callback)
+    @assert face_callback === nothing
+    @assert corner_callback === nothing
+
+    GC.@preserve data begin
+        p4est_iterate(
+            p,
+            C_NULL,
+            pointer_from_objref(data),
+            _volume_callback,
+            C_NULL,
+            C_NULL,
+        )
+    end
+
+    return nothing
+end
