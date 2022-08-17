@@ -109,7 +109,7 @@ end
 
 function Base.getindex(p::Pxest{X}, i::Int) where {X}
     GC.@preserve p begin
-        for t = p.pointer.first_local_tree+1:p.pointer.last_local_tree+1
+        for t = (p.pointer.first_local_tree+1):(p.pointer.last_local_tree+1)
             @assert t ≤ p.pointer.trees.elem_count
             tree = unsafe_load(Ptr{p4est_tree}(p.pointer.trees.array), t)
             numquadrants = tree.quadrants.elem_count
