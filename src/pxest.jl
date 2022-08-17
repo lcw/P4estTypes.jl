@@ -6,7 +6,7 @@ struct Quadrant{X,P}
     pointer::P
 end
 
-mutable struct Pxest{X,P,C} <: AbstractArray{Quadrant{X,p4est_quadrant},1}
+mutable struct Pxest{X,P,C} <: AbstractArray{Quadrant,1}
     pointer::P
     connectivity::C
     comm::MPI.Comm
@@ -114,8 +114,9 @@ function Base.getindex(p::Pxest{X}, i::Int) where {X}
             tree = unsafe_load(Ptr{p4est_tree}(p.pointer.trees.array), t)
             numquadrants = tree.quadrants.elem_count
             if i <= numquadrants
-                q = unsafe_load(Ptr{p4est_quadrant}(tree.quadrants.array), i)
-                return (t - 1, Quadrant{X,p4est_quadrant}(q))
+                T = X == 4 ? p4est_quadrant : p8est_quadrant
+                q = unsafe_load(Ptr{T}(tree.quadrants.array), i)
+                return (t - 1, Quadrant{X,T}(q))
             else
                 i -= numquadrants
             end
