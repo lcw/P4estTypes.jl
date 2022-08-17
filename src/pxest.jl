@@ -1,3 +1,7 @@
+
+const Locidx = P4est.p4est_locidx_t
+const Gloidx = P4est.p4est_gloidx_t
+
 struct Quadrant{X,P}
     pointer::P
 end

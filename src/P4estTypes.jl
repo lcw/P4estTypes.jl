@@ -5,7 +5,7 @@ using P4est
 using RecipesBase
 using SparseArrays
 
-export Connectivity
+export Connectivity, Locidx, Gloidx
 
 export refine, reduce!, complete!, brick, pxest, local_size, global_size, global_axes
 
