@@ -1,5 +1,6 @@
 module P4estTypes
 
+using CBinding
 using MPI
 using P4est
 using RecipesBase
