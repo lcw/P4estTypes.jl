@@ -114,6 +114,9 @@ end
 
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
 
+lengthoflocalquadrants(p::Pxest) = p.pointer.local_num_quadrants
+lengthofglobalquadrants(p::Pxest) = p.pointer.global_num_quadrants
+
 function Base.unsafe_convert(::Type{Ptr{p4est}}, p::Pxest{4,T,Ptr{p4est}}) where {T}
     return p.pointer
 end

@@ -9,6 +9,7 @@ using SparseArrays
 export Connectivity, Locidx, Gloidx
 
 export refine, reduce!, complete!, brick, pxest
+export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
 export level, storeuserdata!, loaduserdata
 export offset
 export iterateforest
