@@ -12,13 +12,25 @@ storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T} =
 loaduserdata(quadrant::Quadrant{X,T}) where {X,T} =
     unsafe_load(Ptr{T}(quadrant.pointer.p.user_data))
 
-struct Tree{X,P}
+struct Tree{X,T,P} <: AbstractArray{Quadrant,1}
     pointer::P
 end
 
+Base.size(t::Tree) = (t.pointer.quadrants.elem_count,)
+function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
+    @boundscheck checkbounds(t, i)
+    GC.@preserve t begin
+        Q = X == 4 ? p4est_quadrant : p8est_quadrant
+        quadurant = unsafe_load(Ptr{Q}(t.pointer.quadrants.array), i)
+        return Quadrant{X,T,Q}(quadurant)
+    end
+end
+Base.IndexStyle(::Tree) = IndexLinear()
+
+
 offset(tree::Tree) = tree.pointer.quadrants_offset
 
-mutable struct Pxest{X,T,P,C} <: AbstractArray{Quadrant,1}
+mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
     pointer::P
     connectivity::C
     comm::MPI.Comm
@@ -109,38 +121,15 @@ function Base.unsafe_convert(::Type{Ptr{p8est}}, p::Pxest{8,T,Ptr{p8est}}) where
     return p.pointer
 end
 
-global_size(p::Pxest{X}) where {X} = (p.pointer.global_num_quadrants,)
-local_size(p::Pxest{X}) where {X} = (p.pointer.local_num_quadrants,)
-Base.size(p::Pxest{X}) where {X} = local_size(p)
-function global_axes(p::Pxest{X}) where {X}
-    rank = MPI.Comm_rank(p.comm)
-
-    GC.@preserve p begin
-        global_first_position = unsafe_load(p.pointer.global_first_quadrant, rank + 1) + 1
-        global_last_position = unsafe_load(p.pointer.global_first_quadrant, rank + 2)
-    end
-
-    return global_first_position:global_last_position
-end
-
+Base.size(p::Pxest) = (p.pointer.trees.elem_count,)
 function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
+    @boundscheck checkbounds(p, i)
     GC.@preserve p begin
-        for t = (p.pointer.first_local_tree+1):(p.pointer.last_local_tree+1)
-            @assert t ≤ p.pointer.trees.elem_count
-            tree = unsafe_load(Ptr{p4est_tree}(p.pointer.trees.array), t)
-            numquadrants = tree.quadrants.elem_count
-            if i <= numquadrants
-                Q = X == 4 ? p4est_quadrant : p8est_quadrant
-                q = unsafe_load(Ptr{Q}(tree.quadrants.array), i)
-                return (t - 1, Quadrant{X,T,Q}(q))
-            else
-                i -= numquadrants
-            end
-        end
+        tree = unsafe_load(Ptr{p4est_tree}(p.pointer.trees.array), i)
+        return Tree{X,T,p4est_tree}(tree)
     end
 end
-
-Base.IndexStyle(::Pxest{X}) where {X} = IndexLinear()
+Base.IndexStyle(::Pxest) = IndexLinear()
 
 mutable struct IterateData{P,G,U}
     forest::P
@@ -155,16 +144,13 @@ function _p4est_volume_callback_generate(volume_callback)
             data = unsafe_pointer_to_objref(user_data)
             T = typeofquadrantuserdata(data[].forest)
             quadrant = Quadrant{4,T,Ptr{p4est_quadrant}}(info.quad)
-            tree_ptr = Ptr{p4est_tree}(data[].forest.pointer.trees.array) + info.treeid
-            tree = Tree{4,Ptr{p4est_tree}}(tree_ptr)
             volume_callback(
                 data[].forest,
                 data[].ghost_layer,
-                data[].user_data,
                 quadrant,
-                tree,
                 info.quadid + 1,
                 info.treeid + 1,
+                data[].user_data,
             )
             return
         end

@@ -8,7 +8,7 @@ using SparseArrays
 
 export Connectivity, Locidx, Gloidx
 
-export refine, reduce!, complete!, brick, pxest, local_size, global_size, global_axes
+export refine, reduce!, complete!, brick, pxest
 export level, storeuserdata!, loaduserdata
 export offset
 export iterateforest
