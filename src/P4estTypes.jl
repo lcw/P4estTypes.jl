@@ -39,6 +39,12 @@ using SnoopPrecompile
 @precompile_setup begin
     @precompile_all_calls begin
         MPI.Initialized() || MPI.Init()
+        if !SC.initialized()
+            sc_init(MPI.COMM_NULL, 0, 0, C_NULL, SC_LP_ERROR)
+        end
+        if !initialized()
+            p4est_init(C_NULL, SC_LP_ERROR)
+        end
         p = pxest(brick(3, 4))
     end
 end
