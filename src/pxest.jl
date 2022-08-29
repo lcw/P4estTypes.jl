@@ -27,7 +27,6 @@ function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
 end
 Base.IndexStyle(::Tree) = IndexLinear()
 
-
 offset(tree::Tree) = tree.pointer.quadrants_offset
 
 mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
@@ -70,7 +69,6 @@ function pxest(
     fill_uniform = true,
     data_type = Nothing,
     init_function = C_NULL,
-    user_pointer = C_NULL,
 )
     MPI.Initialized() || MPI.Init()
 
@@ -82,7 +80,7 @@ function pxest(
         fill_uniform,
         sizeof(data_type),
         init_function,
-        user_pointer,
+        C_NULL,
     )
     return Pxest{4}(pointer, connectivity, comm, data_type)
 end
@@ -95,7 +93,6 @@ function pxest(
     fill_uniform = true,
     data_type = Nothing,
     init_function = C_NULL,
-    user_pointer = C_NULL,
 )
     MPI.Initialized() || MPI.Init()
 
@@ -107,7 +104,7 @@ function pxest(
         fill_uniform,
         sizeof(data_type),
         init_function,
-        user_pointer,
+        C_NULL,
     )
     return Pxest{8}(pointer, connectivity, comm, data_type)
 end
@@ -134,59 +131,39 @@ function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
 end
 Base.IndexStyle(::Pxest) = IndexLinear()
 
-mutable struct IterateData{P,G,U}
-    forest::P
-    ghost_layer::G
-    user_data::U
-end
-
-function _p4est_volume_callback_generate(volume_callback)
-    Ccallback, _ =
-        Cfunction{Cvoid,Tuple{Ptr{p4est_iter_volume_info_t},Ptr{Cvoid}}}() do info,
-        user_data
-            data = unsafe_pointer_to_objref(user_data)
-            T = typeofquadrantuserdata(data[].forest)
-            quadrant = Quadrant{4,T,Ptr{p4est_quadrant}}(info.quad)
-            volume_callback(
-                data[].forest,
-                data[].ghost_layer,
-                quadrant,
-                info.quadid + 1,
-                info.treeid + 1,
-                data[].user_data,
-            )
-            return
-        end
-
-    return Ccallback
+function _p4est_volume_callback(info, _)
+    data = unsafe_pointer_to_objref(info.p4est.user_pointer)[]
+    T = typeofquadrantuserdata(data.forest)
+    quadrant = Quadrant{4,T,Ptr{p4est_quadrant}}(info.quad)
+    data.volume(data.forest, data.ghost, quadrant, info.quadid + 1, info.treeid + 1)
+    return
 end
 
 function iterateforest(
     forest::Pxest{4};
-    user_data = nothing,
-    ghost_layer = nothing,
-    volume_callback = nothing,
-    face_callback = nothing,
-    corner_callback = nothing,
+    ghost = nothing,
+    volume = nothing,
+    face = nothing,
+    corner = nothing,
 )
+    data = Ref((; forest, ghost, volume, face, corner))
+    forest.pointer.user_pointer = pointer_from_objref(data)
 
-    data = Ref(IterateData(forest, ghost_layer, user_data))
-    _volume_callback =
-        isnothing(volume_callback) ? C_NULL :
-        _p4est_volume_callback_generate(volume_callback)
-    @assert face_callback === nothing
-    @assert corner_callback === nothing
+    volume_callback::Ptr{Cvoid} =
+        isnothing(volume) ? C_NULL :
+        @cfunction(
+            _p4est_volume_callback,
+            Cvoid,
+            (Ptr{p4est_iter_volume_info_t}, Ptr{Cvoid})
+        )
+    @assert face === nothing
+    @assert corner === nothing
 
     GC.@preserve data begin
-        p4est_iterate(
-            forest,
-            C_NULL,
-            pointer_from_objref(data),
-            _volume_callback,
-            C_NULL,
-            C_NULL,
-        )
+        p4est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL)
     end
 
-    return nothing
+    forest.pointer.user_pointer = C_NULL
+
+    return
 end
