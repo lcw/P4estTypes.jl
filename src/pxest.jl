@@ -68,7 +68,7 @@ function pxest(
     min_level = 0,
     fill_uniform = true,
     data_type = Nothing,
-    init_function = C_NULL,
+    init_function = nothing,
 )
     MPI.Initialized() || MPI.Init()
 
@@ -79,10 +79,18 @@ function pxest(
         min_level,
         fill_uniform,
         sizeof(data_type),
-        init_function,
+        C_NULL,
         C_NULL,
     )
-    return Pxest{4}(pointer, connectivity, comm, data_type)
+
+    forest = Pxest{4}(pointer, connectivity, comm, data_type)
+
+    if !isnothing(init_function)
+        init(forest, _, quadrant, _, treeid) = init_function(forest, treeid, quadrant)
+        iterateforest(forest; volume = init)
+    end
+
+    return forest
 end
 
 function pxest(
@@ -92,9 +100,11 @@ function pxest(
     min_level = 0,
     fill_uniform = true,
     data_type = Nothing,
-    init_function = C_NULL,
+    init_function = nothing,
 )
     MPI.Initialized() || MPI.Init()
+
+    @assert isnothing(init_function)
 
     pointer = p8est_new_ext(
         comm,
@@ -103,7 +113,7 @@ function pxest(
         min_level,
         fill_uniform,
         sizeof(data_type),
-        init_function,
+        C_NULL,
         C_NULL,
     )
     return Pxest{8}(pointer, connectivity, comm, data_type)
