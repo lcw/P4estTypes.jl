@@ -164,17 +164,15 @@ function iterateforest(
     forest.pointer.user_pointer = pointer_from_objref(data)
 
     volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
-
-    @assert ghost === nothing
     @assert face === nothing
     @assert edge === nothing
     @assert corner === nothing
 
     GC.@preserve data begin
         if X == 4
-            p4est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL)
+            p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
         elseif X == 8
-            p8est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL, C_NULL)
+            p8est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL, C_NULL)
         else
             error("Not implemented")
         end
