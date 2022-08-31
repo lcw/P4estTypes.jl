@@ -1,3 +1,13 @@
+@inline pxest_t(::Val{4}) = p4est
+@inline pxest_t(::Val{8}) = p8est
+@inline pxest_new_ext(::Val{4}) = p4est_new_ext
+@inline pxest_new_ext(::Val{8}) = p8est_new_ext
+@inline pxest_quadrant_t(::Val{4}) = p4est_quadrant
+@inline pxest_quadrant_t(::Val{8}) = p8est_quadrant
+@inline pxest_tree_t(::Val{4}) = p4est_tree
+@inline pxest_tree_t(::Val{8}) = p8est_tree
+@inline pxest_iter_volume_info_t(::Val{4}) = p4est_iter_volume_info_t
+@inline pxest_iter_volume_info_t(::Val{8}) = p8est_iter_volume_info_t
 
 const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
@@ -20,9 +30,9 @@ Base.size(t::Tree) = (t.pointer.quadrants.elem_count,)
 function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(t, i)
     GC.@preserve t begin
-        Q = X == 4 ? p4est_quadrant : p8est_quadrant
-        quadurant = unsafe_load(Ptr{Q}(t.pointer.quadrants.array), i)
-        return Quadrant{X,T,Q}(quadurant)
+        Q = pxest_quadrant_t(Val(X))
+        quadrant = Ptr{Q}(t.pointer.quadrants.array + sizeof(Q) * (i - 1))
+        return Quadrant{X,T,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Tree) = IndexLinear()
@@ -34,7 +44,7 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
     connectivity::C
     comm::MPI.Comm
     function Pxest{4}(
-        pointer::Ptr{P4est.LibP4est.p4est},
+        pointer::Ptr{p4est},
         connectivity::Connectivity{4},
         comm::MPI.Comm,
         ::Type{T},
@@ -47,7 +57,7 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
         end
     end
     function Pxest{8}(
-        pointer::Ptr{P4est.LibP4est.p8est},
+        pointer::Ptr{p8est},
         connectivity::Connectivity{8},
         comm::MPI.Comm,
         ::Type{T},
@@ -62,17 +72,17 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
 end
 
 function pxest(
-    connectivity::Connectivity{4};
+    connectivity::Connectivity{X};
     comm = MPI.COMM_WORLD,
     min_quadrants = 0,
     min_level = 0,
     fill_uniform = true,
     data_type = Nothing,
     init_function = nothing,
-)
+) where {X}
     MPI.Initialized() || MPI.Init()
 
-    pointer = p4est_new_ext(
+    pointer = (pxest_new_ext(Val(X)))(
         comm,
         connectivity,
         min_quadrants,
@@ -83,7 +93,7 @@ function pxest(
         C_NULL,
     )
 
-    forest = Pxest{4}(pointer, connectivity, comm, data_type)
+    forest = Pxest{X}(pointer, connectivity, comm, data_type)
 
     if !isnothing(init_function)
         init(forest, _, quadrant, _, treeid) = init_function(forest, treeid, quadrant)
@@ -93,34 +103,10 @@ function pxest(
     return forest
 end
 
-function pxest(
-    connectivity::Connectivity{8};
-    comm = MPI.COMM_WORLD,
-    min_quadrants = 0,
-    min_level = 0,
-    fill_uniform = true,
-    data_type = Nothing,
-    init_function = nothing,
-)
-    MPI.Initialized() || MPI.Init()
-
-    @assert isnothing(init_function)
-
-    pointer = p8est_new_ext(
-        comm,
-        connectivity,
-        min_quadrants,
-        min_level,
-        fill_uniform,
-        sizeof(data_type),
-        C_NULL,
-        C_NULL,
-    )
-    return Pxest{8}(pointer, connectivity, comm, data_type)
-end
-
+quadrantstyle(::Pxest{X}) where {X} = X
+quadrantndims(::Pxest{4}) = 2
+quadrantndims(::Pxest{8}) = 3
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
-
 lengthoflocalquadrants(p::Pxest) = p.pointer.local_num_quadrants
 lengthofglobalquadrants(p::Pxest) = p.pointer.global_num_quadrants
 
@@ -135,42 +121,63 @@ Base.size(p::Pxest) = (p.pointer.trees.elem_count,)
 function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(p, i)
     GC.@preserve p begin
-        tree = unsafe_load(Ptr{p4est_tree}(p.pointer.trees.array), i)
-        return Tree{X,T,p4est_tree}(tree)
+        tree = unsafe_load(Ptr{pxest_tree_t(Val(X))}(p.pointer.trees.array), i)
+        return Tree{X,T,pxest_tree_t(Val(X))}(tree)
     end
 end
 Base.IndexStyle(::Pxest) = IndexLinear()
 
-function _p4est_volume_callback(info, _)
+function iterate_volume_callback(info, _)
     data = unsafe_pointer_to_objref(info.p4est.user_pointer)[]
+    X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
-    quadrant = Quadrant{4,T,Ptr{p4est_quadrant}}(info.quad)
-    data.volume(data.forest, data.ghost, quadrant, info.quadid + 1, info.treeid + 1)
+    quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(info.quad)
+    data.volume(
+        data.forest,
+        data.ghost,
+        quadrant,
+        info.quadid + 1,
+        info.treeid + 1,
+        data.userdata,
+    )
     return
 end
 
+@generated function generate_volume_callback(::Val{X}) where {X}
+    I = pxest_iter_volume_info_t(Val(X))
+    quote
+        @cfunction(iterate_volume_callback, Cvoid, (Ptr{$I}, Ptr{Cvoid}))
+    end
+end
+
 function iterateforest(
-    forest::Pxest{4};
+    forest::Pxest{X};
     ghost = nothing,
     volume = nothing,
     face = nothing,
+    edge = nothing,
     corner = nothing,
-)
-    data = Ref((; forest, ghost, volume, face, corner))
+    userdata = nothing,
+) where {X}
+    data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
+    ghost = isnothing(ghost) ? C_NULL : ghost
     forest.pointer.user_pointer = pointer_from_objref(data)
 
-    volume_callback::Ptr{Cvoid} =
-        isnothing(volume) ? C_NULL :
-        @cfunction(
-            _p4est_volume_callback,
-            Cvoid,
-            (Ptr{p4est_iter_volume_info_t}, Ptr{Cvoid})
-        )
+    volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
+
+    @assert ghost === nothing
     @assert face === nothing
+    @assert edge === nothing
     @assert corner === nothing
 
     GC.@preserve data begin
-        p4est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL)
+        if X == 4
+            p4est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL)
+        elseif X == 8
+            p8est_iterate(forest, C_NULL, C_NULL, volume_callback, C_NULL, C_NULL, C_NULL)
+        else
+            error("Not implemented")
+        end
     end
 
     forest.pointer.user_pointer = C_NULL
