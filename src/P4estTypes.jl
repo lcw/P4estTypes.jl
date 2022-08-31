@@ -13,6 +13,8 @@ export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
 export level, storeuserdata!, loaduserdata
 export offset
 export iterateforest
+export refine!, coarsen!, balance!, partition!
+export lnodes, ghostlayer
 
 include("sc.jl")
 
@@ -26,6 +28,8 @@ uses_mpi() = P4est.uses_mpi()
 
 include("connectivity.jl")
 include("pxest.jl")
+include("lnodes.jl")
+include("ghost.jl")
 
 function __init__()
     if !SC.initialized()

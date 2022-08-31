@@ -2,12 +2,38 @@
 @inline pxest_t(::Val{8}) = p8est
 @inline pxest_new_ext(::Val{4}) = p4est_new_ext
 @inline pxest_new_ext(::Val{8}) = p8est_new_ext
+@inline pxest_balance_ext(::Val{4}) = p4est_balance_ext
+@inline pxest_balance_ext(::Val{8}) = p8est_balance_ext
+@inline pxest_coarsen_ext(::Val{4}) = p4est_coarsen_ext
+@inline pxest_coarsen_ext(::Val{8}) = p8est_coarsen_ext
+@inline pxest_refine_ext(::Val{4}) = p4est_refine_ext
+@inline pxest_refine_ext(::Val{8}) = p8est_refine_ext
+@inline pxest_partition_ext(::Val{4}) = p4est_partition_ext
+@inline pxest_partition_ext(::Val{8}) = p8est_partition_ext
+@inline pxest_partition_lnodes(::Val{4}) = p4est_partition_lnodes
+@inline pxest_partition_lnodes(::Val{8}) = p8est_partition_lnodes
+@inline pxest_ghost_t(::Val{4}) = p4est_ghost_t
+@inline pxest_ghost_t(::Val{8}) = p8est_ghost_t
+@inline pxest_ghost_new(::Val{4}) = p4est_ghost_new
+@inline pxest_ghost_new(::Val{8}) = p8est_ghost_new
+@inline pxest_lnodes_t(::Val{4}) = p4est_lnodes
+@inline pxest_lnodes_t(::Val{8}) = p8est_lnodes
+@inline pxest_lnodes_new(::Val{4}) = p4est_lnodes_new
+@inline pxest_lnodes_new(::Val{8}) = p8est_lnodes_new
 @inline pxest_quadrant_t(::Val{4}) = p4est_quadrant
 @inline pxest_quadrant_t(::Val{8}) = p8est_quadrant
 @inline pxest_tree_t(::Val{4}) = p4est_tree
 @inline pxest_tree_t(::Val{8}) = p8est_tree
 @inline pxest_iter_volume_info_t(::Val{4}) = p4est_iter_volume_info_t
 @inline pxest_iter_volume_info_t(::Val{8}) = p8est_iter_volume_info_t
+
+@inline CONNECT_FULL(::Val{4}) = P4EST_CONNECT_FULL
+@inline CONNECT_FULL(::Val{8}) = P8EST_CONNECT_FULL
+@inline CONNECT_FACE(::Val{4}) = P4EST_CONNECT_FACE
+@inline CONNECT_FACE(::Val{8}) = P8EST_CONNECT_FACE
+@inline CONNECT_CORNER(::Val{4}) = P4EST_CONNECT_CORNER
+@inline CONNECT_CORNER(::Val{8}) = P8EST_CONNECT_CORNER
+@inline CONNECT_EDGE(::Val{8}) = P8EST_CONNECT_CORNER
 
 const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
@@ -179,6 +205,225 @@ function iterateforest(
     end
 
     forest.pointer.user_pointer = C_NULL
+
+    return
+end
+
+function init_callback(forest, treeid, quadrant)
+    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+
+    X = quadrantstyle(data.forest)
+    T = typeofquadrantuserdata(data.forest)
+    Q = pxest_quadrant_t(Val(X))
+
+    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+
+    data.init(data.forest, treeid + 1, quadrant)
+
+    return
+end
+
+@generated function generate_init_callback(::Val{X}) where {X}
+    P = pxest_t(Val(X))
+    Q = pxest_quadrant_t(Val(X))
+
+    quote
+        @cfunction(init_callback, Cvoid, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
+    end
+end
+
+function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, incoming)
+    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+
+    X = quadrantstyle(data.forest)
+    T = typeofquadrantuserdata(data.forest)
+    Q = pxest_quadrant_t(Val(X))
+
+    outgoing = unsafe_wrap(Array, outgoing, num_outgoing)
+    outgoing = ntuple(i -> Quadrant{X,T,Ptr{Q}}(outgoing[i]), num_outgoing)
+
+    incoming = unsafe_wrap(Array, incoming, num_incoming)
+    incoming = ntuple(i -> Quadrant{X,T,Ptr{Q}}(incoming[i]), num_incoming)
+
+    data.replace(data.forest, treeid + 1, outgoing, incoming)
+
+    return
+end
+
+@generated function generate_replace_callback(::Val{X}) where {X}
+    P = pxest_t(Val(X))
+    Q = pxest_quadrant_t(Val(X))
+
+    quote
+        @cfunction(
+            replace_callback,
+            Cvoid,
+            (Ptr{$P}, p4est_topidx_t, Cint, Ptr{Ptr{$Q}}, Cint, Ptr{Ptr{$Q}})
+        )
+    end
+end
+
+function coarsen_callback(forest, treeid, children)
+    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+
+    X = quadrantstyle(data.forest)
+    T = typeofquadrantuserdata(data.forest)
+    Q = pxest_quadrant_t(Val(X))
+
+    children = unsafe_wrap(Array, children, X)
+    children = ntuple(i -> Quadrant{X,T,Ptr{Q}}(children[i]), Val(X))
+    return data.coarsen(data.forest, treeid + 1, children) ? one(Cint) : zero(Cint)
+end
+
+@generated function generate_coarsen_callback(::Val{X}) where {X}
+    P = pxest_t(Val(X))
+    Q = pxest_quadrant_t(Val(X))
+
+    quote
+        @cfunction(coarsen_callback, Cint, (Ptr{$P}, p4est_topidx_t, Ptr{Ptr{$Q}}))
+    end
+end
+
+function coarsen!(
+    forest::Pxest{X};
+    recursive = false,
+    callback_orphans = false,
+    coarsen = nothing,
+    init = nothing,
+    replace = nothing,
+) where {X}
+    data = Ref((; forest, coarsen, init, replace))
+    forest.pointer.user_pointer = pointer_from_objref(data)
+
+    coarsen::Ptr{Cvoid} = isnothing(coarsen) ? C_NULL : generate_coarsen_callback(Val(X))
+    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
+
+    GC.@preserve data begin
+        (pxest_coarsen_ext(Val(X)))(
+            forest,
+            recursive,
+            callback_orphans,
+            coarsen,
+            init,
+            replace,
+        )
+    end
+
+    forest.pointer.user_pointer = C_NULL
+
+    return
+end
+
+function refine_callback(forest, treeid, quadrant)
+    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+
+    X = quadrantstyle(data.forest)
+    T = typeofquadrantuserdata(data.forest)
+    Q = pxest_quadrant_t(Val(X))
+
+    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+    return data.refine(data.forest, treeid + 1, quadrant) ? one(Cint) : zero(Cint)
+end
+
+@generated function generate_refine_callback(::Val{X}) where {X}
+    P = pxest_t(Val(X))
+    Q = pxest_quadrant_t(Val(X))
+
+    quote
+        @cfunction(refine_callback, Cint, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
+    end
+end
+
+function refine!(
+    forest::Pxest{X};
+    recursive = false,
+    maxlevel = -1,
+    refine = nothing,
+    init = nothing,
+    replace = nothing,
+) where {X}
+    data = Ref((; forest, refine, init, replace))
+    forest.pointer.user_pointer = pointer_from_objref(data)
+
+    refine::Ptr{Cvoid} = isnothing(refine) ? C_NULL : generate_refine_callback(Val(X))
+    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
+
+    GC.@preserve data begin
+        (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
+    end
+
+    forest.pointer.user_pointer = C_NULL
+
+    return
+end
+
+function balance!(
+    forest::Pxest{X};
+    connect = CONNECT_FULL(Val(X)),
+    init = nothing,
+    replace = nothing,
+) where {X}
+    data = Ref((; forest, init, replace))
+    forest.pointer.user_pointer = pointer_from_objref(data)
+
+    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
+
+    GC.@preserve data begin
+        (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
+    end
+
+    forest.pointer.user_pointer = C_NULL
+
+    return
+end
+
+function weight_callback(forest, treeid, quadrant)
+    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+
+    X = quadrantstyle(data.forest)
+    T = typeofquadrantuserdata(data.forest)
+    Q = pxest_quadrant_t(Val(X))
+
+    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+    return data.weight(data.forest, treeid + 1, quadrant)
+end
+
+@generated function generate_weight_callback(::Val{X}) where {X}
+    P = pxest_t(Val(X))
+    Q = pxest_quadrant_t(Val(X))
+
+    quote
+        @cfunction(weight_callback, Cint, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
+    end
+end
+
+function partition!(
+    forest::Pxest{X};
+    ghost = nothing,
+    lnodes_degree = nothing,
+    allow_for_coarsening = false,
+    weight = nothing,
+) where {X}
+    if !isnothing(lnodes_degree)
+        if isnothing(ghost)
+            ghost = ghostlayer(forest)
+        end
+        (pxest_partition_lnodes(Val(X)))(forest, ghost, lnodes_degree, allow_for_coarsening)
+    else
+        data = Ref((; forest, weight))
+        forest.pointer.user_pointer = pointer_from_objref(data)
+
+        weight::Ptr{Cvoid} = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
+
+        GC.@preserve data begin
+            (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
+        end
+
+        forest.pointer.user_pointer = C_NULL
+    end
 
     return
 end
