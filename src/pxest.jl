@@ -42,7 +42,11 @@ struct Quadrant{X,T,P}
     pointer::P
 end
 
-level(quadrant::Quadrant) = quadrant.pointer.level
+@inline level(quadrant::Quadrant) = quadrant.pointer.level
+@inline coordinates(quadrant::Quadrant{4}) = (quadrant.pointer.x, quadrant.pointer.y)
+@inline function coordinates(quadrant::Quadrant{8})
+    return (quadrant.pointer.x, quadrant.pointer.y, quadrant.pointer.z)
+end
 storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T} =
     unsafe_store!(Ptr{T}(quadrant.pointer.p.user_data), data)
 loaduserdata(quadrant::Quadrant{X,T}) where {X,T} =
@@ -135,6 +139,7 @@ quadrantndims(::Pxest{8}) = 3
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
 lengthoflocalquadrants(p::Pxest) = p.pointer.local_num_quadrants
 lengthofglobalquadrants(p::Pxest) = p.pointer.global_num_quadrants
+comm(p::Pxest) = p.comm
 
 function Base.unsafe_convert(::Type{Ptr{p4est}}, p::Pxest{4,T,Ptr{p4est}}) where {T}
     return p.pointer
