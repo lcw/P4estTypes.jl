@@ -56,7 +56,7 @@ struct Tree{X,T,P} <: AbstractArray{Quadrant,1}
     pointer::P
 end
 
-Base.size(t::Tree) = (t.pointer.quadrants.elem_count,)
+Base.size(t::Tree) = (convert(Int, t.pointer.quadrants.elem_count),)
 function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(t, i)
     GC.@preserve t begin
@@ -148,7 +148,7 @@ function Base.unsafe_convert(::Type{Ptr{p8est}}, p::Pxest{8,T,Ptr{p8est}}) where
     return p.pointer
 end
 
-Base.size(p::Pxest) = (p.pointer.trees.elem_count,)
+Base.size(p::Pxest) = (convert(Int, p.pointer.trees.elem_count),)
 function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(p, i)
     GC.@preserve p begin
