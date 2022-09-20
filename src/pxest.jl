@@ -44,6 +44,7 @@ end
 
 @inline level(quadrant::Quadrant) = quadrant.pointer.level
 @inline coordinates(quadrant::Quadrant{4}) = (quadrant.pointer.x, quadrant.pointer.y)
+@inline which_tree(quadrant::Quadrant) = quadrant.pointer.p.piggy3.which_tree + 1
 @inline function coordinates(quadrant::Quadrant{8})
     return (quadrant.pointer.x, quadrant.pointer.y, quadrant.pointer.z)
 end
