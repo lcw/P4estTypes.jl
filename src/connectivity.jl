@@ -88,20 +88,20 @@ end
 function Connectivity{X}(VXYZ, EToV) where {X}
     num_vertices = size(VXYZ, 1)
     num_elements = size(EToV, 1)
-    conn = Connectivity{X}(P4est.p4est_connectivity_new(num_vertices, num_elements, 0, 0));
+    conn = Connectivity{X}(P4est.p4est_connectivity_new(num_vertices, num_elements, 0, 0))
     trees = P4estTypes.unsafe_trees(conn)
     vertices = P4estTypes.unsafe_vertices(conn)
     tree_to_tree = P4estTypes.unsafe_tree_to_tree(conn)
     tree_to_face = P4estTypes.unsafe_tree_to_face(conn)
 
     for i in eachindex(trees, tree_to_tree, tree_to_face)
-        trees[i] = Tuple(EToV[i,:])
-        tree_to_tree[i] = ntuple(_ -> (i-1), 4)
-        tree_to_face[i] = ntuple(i -> (i-1), 4) # connectivity - this is important for using `complete!(conn)`
+        trees[i] = Tuple(EToV[i, :])
+        tree_to_tree[i] = ntuple(_ -> (i - 1), 4)
+        tree_to_face[i] = ntuple(i -> (i - 1), 4) # connectivity - this is important for using `complete!(conn)`
     end
 
     for i in eachindex(vertices)
-        vertices[i] = Tuple(VXYZ[i,:])
+        vertices[i] = Tuple(VXYZ[i, :])
     end
 
     complete!(conn)
