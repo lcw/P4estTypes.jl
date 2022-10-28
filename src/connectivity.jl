@@ -80,6 +80,34 @@ function Connectivity{8}(name::Symbol, args...)
     return Connectivity{8}(pointer)
 end
 
+# creates a coarse P4est connectivity from a list of vertices and element-to-vertex connectivity
+# - VXYZ should be a [num_vertices, 3] matrix where the columns correspond to x, y, and z coordinates 
+#   (the `z` coordinate should be zero for a 2D forest)
+# - EToV should be a [num_vertices, 4 or 8] matrix where the columns vertex indices used to define 
+#   each element. Note that z-ordering should be used
+function Connectivity{X}(VXYZ, EToV) where {X}
+    num_vertices = size(VXYZ, 1)
+    num_elements = size(EToV, 1)
+    conn = Connectivity{X}(P4est.p4est_connectivity_new(num_vertices, num_elements, 0, 0));
+    trees = P4estTypes.unsafe_trees(conn)
+    vertices = P4estTypes.unsafe_vertices(conn)
+    tree_to_tree = P4estTypes.unsafe_tree_to_tree(conn)
+    tree_to_face = P4estTypes.unsafe_tree_to_face(conn)
+
+    for i in eachindex(trees, tree_to_tree, tree_to_face)
+        trees[i] = Tuple(EToV[i,:])
+        tree_to_tree[i] = ntuple(_ -> (i-1), 4)
+        tree_to_face[i] = ntuple(i -> (i-1), 4) # connectivity - this is important for using `complete!(conn)`
+    end
+
+    for i in eachindex(vertices)
+        vertices[i] = Tuple(VXYZ[i,:])
+    end
+
+    complete!(conn)
+    return conn
+end
+
 function Base.unsafe_convert(
     ::Type{Ptr{p4est_connectivity}},
     c::Connectivity{4,Ptr{p4est_connectivity}},
