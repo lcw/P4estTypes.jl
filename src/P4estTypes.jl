@@ -1,5 +1,6 @@
 module P4estTypes
 
+using AbstractTrees: print_tree
 using CBinding
 using MPI
 using P4est

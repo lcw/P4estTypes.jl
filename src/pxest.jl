@@ -433,3 +433,26 @@ function partition!(
 
     return
 end
+
+import Base:show 
+function Base.show(io::IO, forest::P4estTypes.Pxest{X}) where{X}
+    print("Forest{$X} with $(length(forest)) trees.")
+end
+
+# A p4est "forest" object is represented as an AbstractArray of AbstractArrays, 
+# which AbstractTrees.jl automatically recognizes as a printable tree. 
+function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, forest::P4estTypes.Pxest)
+    print_tree(forest)
+end
+
+function Base.show(io::IO, tree::Tree{X}) where {X}
+    print("Tree{$X} with $(length(tree)) quadrants.")
+end
+
+function Base.show(io::IO, q::Quadrant{X}) where {X}
+    print("Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
+end
+
+# - forest = array of trees
+# - tree = array of quadrant
+# - quadrant has fields `*.pointer.x/y/z(if in 3D)/level`
