@@ -35,5 +35,11 @@
         4 7 5 8
     ]
 
-    @test isvalid(Connectivity{4}(VXYZ, EToV))
+    conn = Connectivity{4}(VXYZ, EToV)
+    @test isvalid(conn)
+
+    # test default `refine` argument
+    p4est = pxest(conn, min_level=2)
+    @test length(p4est)==4 # 4 trees
+    @test all(length.(p4est) .== 16) # each tree has 16 quadrants due to min_level = 2
 end
