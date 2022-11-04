@@ -38,6 +38,8 @@
 const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
 
+# X = 4 or 8
+# T = user data type
 struct Quadrant{X,T,P}
     pointer::P
 end
@@ -345,10 +347,11 @@ function refine!(
     forest::Pxest{X};
     recursive = false,
     maxlevel = -1,
-    refine = nothing,
+    refine = (_...) -> false,
     init = nothing,
     replace = nothing,
 ) where {X}
+    # `Ref` should ensure this pointer is persistent and valid to be passed to C
     data = Ref((; forest, refine, init, replace))
     forest.pointer.user_pointer = pointer_from_objref(data)
 
@@ -356,6 +359,7 @@ function refine!(
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
+    # `Ref` keeps `data` around, GC.@preserve avoids having `data` being freed by GC
     GC.@preserve data begin
         (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
     end
