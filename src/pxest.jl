@@ -351,7 +351,6 @@ function refine!(
     init = nothing,
     replace = nothing,
 ) where {X}
-    # `Ref` should ensure this pointer is persistent and valid to be passed to C
     data = Ref((; forest, refine, init, replace))
     forest.pointer.user_pointer = pointer_from_objref(data)
 
@@ -359,7 +358,6 @@ function refine!(
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
-    # `Ref` keeps `data` around, GC.@preserve avoids having `data` being freed by GC
     GC.@preserve data begin
         (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
     end
@@ -443,8 +441,6 @@ function Base.show(io::IO, forest::P4estTypes.Pxest{X}) where {X}
     print(io, "Forest{$X} with $(length(forest)) trees.")
 end
 
-# A p4est "forest" object is represented as an AbstractArray of AbstractArrays, 
-# which AbstractTrees.jl automatically recognizes as a printable tree. 
 function Base.show(io::IO, ::MIME{Symbol("text/plain")}, forest::P4estTypes.Pxest)
     print_tree(io, forest)
 end
@@ -456,7 +452,3 @@ end
 function Base.show(io::IO, q::Quadrant{X}) where {X}
     print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
 end
-
-# - forest = array of trees
-# - tree = array of quadrant
-# - quadrant has fields `*.pointer.x/y/z(if in 3D)/level`
