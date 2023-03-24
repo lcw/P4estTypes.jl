@@ -1,12 +1,12 @@
 module SC
 
-using ..MPI
-using ..P4est
+using MPI
+using P4est
 initialized() = sc_package_id()[] >= 0
 finalize() = sc_finalize_noabort()
 module LP
 
-using ..P4est
+using P4est
 abstract type LogPriority end
 struct Always <: LogPriority end
 struct Debug <: LogPriority end
