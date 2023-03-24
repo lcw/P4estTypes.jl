@@ -438,8 +438,8 @@ function partition!(
     return
 end
 
-import Base:show 
-function Base.show(io::IO, forest::P4estTypes.Pxest{X}) where{X}
+import Base: show
+function Base.show(io::IO, forest::P4estTypes.Pxest{X}) where {X}
     print("Forest{$X} with $(length(forest)) trees.")
 end
 

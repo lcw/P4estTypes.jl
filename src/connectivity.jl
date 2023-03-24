@@ -81,9 +81,9 @@ function Connectivity{8}(name::Symbol, args...)
 end
 
 # creates a coarse P4est connectivity from a list of vertices and element-to-vertex connectivity
-# - VXYZ should be a [num_vertices, 3] matrix where the columns correspond to x, y, and z coordinates 
+# - VXYZ should be a [num_vertices, 3] matrix where the columns correspond to x, y, and z coordinates
 #   (the `z` coordinate should be zero for a 2D forest)
-# - EToV should be a [num_vertices, 4 or 8] matrix where the columns vertex indices used to define 
+# - EToV should be a [num_vertices, 4 or 8] matrix where the columns vertex indices used to define
 #   each element. Note that z-ordering should be used, and it should use zero-indexing
 function Connectivity{X}(VXYZ, EToV) where {X}
     num_vertices = size(VXYZ, 1)
