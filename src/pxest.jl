@@ -440,21 +440,21 @@ end
 
 import Base: show
 function Base.show(io::IO, forest::P4estTypes.Pxest{X}) where {X}
-    print("Forest{$X} with $(length(forest)) trees.")
+    print(io, "Forest{$X} with $(length(forest)) trees.")
 end
 
 # A p4est "forest" object is represented as an AbstractArray of AbstractArrays, 
 # which AbstractTrees.jl automatically recognizes as a printable tree. 
-function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, forest::P4estTypes.Pxest)
-    print_tree(forest)
+function Base.show(io::IO, ::MIME{Symbol("text/plain")}, forest::P4estTypes.Pxest)
+    print_tree(io, forest)
 end
 
 function Base.show(io::IO, tree::Tree{X}) where {X}
-    print("Tree{$X} with $(length(tree)) quadrants.")
+    print(io, "Tree{$X} with $(length(tree)) quadrants.")
 end
 
 function Base.show(io::IO, q::Quadrant{X}) where {X}
-    print("Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
+    print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
 end
 
 # - forest = array of trees
