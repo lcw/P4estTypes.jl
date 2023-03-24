@@ -20,6 +20,14 @@ export lnodes, ghostlayer
 include("sc.jl")
 
 initialized() = p4est_package_id()[] >= 0
+function initialize()
+    if !SC.initialized()
+        sc_init(MPI.COMM_NULL, 0, 0, C_NULL, SC_LP_ERROR)
+    end
+    if !initialized()
+        p4est_init(C_NULL, SC_LP_ERROR)
+    end
+end
 
 function setverbosity(logpriority::SC.LP.LogPriority)
     sc_package_set_verbosity(p4est_package_id()[], logpriority)
@@ -33,24 +41,14 @@ include("lnodes.jl")
 include("ghost.jl")
 
 function __init__()
-    if !SC.initialized()
-        sc_init(MPI.COMM_NULL, 0, 0, C_NULL, SC_LP_ERROR)
-    end
-    if !initialized()
-        p4est_init(C_NULL, SC_LP_ERROR)
-    end
+    initialize()
 end
 
 using SnoopPrecompile
 @precompile_setup begin
     @precompile_all_calls begin
         MPI.Initialized() || MPI.Init()
-        if !SC.initialized()
-            sc_init(MPI.COMM_NULL, 0, 0, C_NULL, SC_LP_ERROR)
-        end
-        if !initialized()
-            p4est_init(C_NULL, SC_LP_ERROR)
-        end
+        initialize()
         p = pxest(brick(3, 4))
     end
 end
