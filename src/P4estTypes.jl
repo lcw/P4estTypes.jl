@@ -1,7 +1,6 @@
 module P4estTypes
 
 using AbstractTrees: print_tree
-using CBinding
 using MPI
 using P4est
 using RecipesBase
@@ -19,7 +18,7 @@ export lnodes, ghostlayer
 
 include("sc.jl")
 
-initialized() = p4est_package_id()[] >= 0
+initialized() = P4est.package_id() >= 0
 function initialize()
     if !SC.initialized()
         sc_init(MPI.COMM_NULL, 0, 0, C_NULL, SC_LP_ERROR)
@@ -30,7 +29,7 @@ function initialize()
 end
 
 function setverbosity(logpriority::SC.LP.LogPriority)
-    sc_package_set_verbosity(p4est_package_id()[], logpriority)
+    sc_package_set_verbosity(P4est.package_id(), logpriority)
 end
 
 uses_mpi() = P4est.uses_mpi()

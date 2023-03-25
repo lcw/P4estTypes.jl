@@ -1,5 +1,5 @@
-@inline pxest_t(::Val{4}) = p4est
-@inline pxest_t(::Val{8}) = p8est
+@inline pxest_t(::Val{4}) = p4est_t
+@inline pxest_t(::Val{8}) = p8est_t
 @inline pxest_new_ext(::Val{4}) = p4est_new_ext
 @inline pxest_new_ext(::Val{8}) = p8est_new_ext
 @inline pxest_balance_ext(::Val{4}) = p4est_balance_ext
@@ -44,40 +44,60 @@ struct Quadrant{X,T,P}
     pointer::P
 end
 
-@inline level(quadrant::Quadrant) = quadrant.pointer.level
-@inline coordinates(quadrant::Quadrant{4}) = (quadrant.pointer.x, quadrant.pointer.y)
-@inline which_tree(quadrant::Quadrant) = quadrant.pointer.p.piggy3.which_tree + 1
+@inline level(quadrant::Quadrant) =
+    GC.@preserve quadrant unsafe_load(quadrant.pointer).level
+@inline function coordinates(quadrant::Quadrant{4})
+    GC.@preserve quadrant begin
+        qs = unsafe_load(quadrant.pointer)
+        return (qs.x, qs.y)
+    end
+end
+@inline function which_tree(quadrant::Quadrant)
+    return GC.@preserve quadrant unsafe_load(quadrant.pointer).p.piggy3.which_tree + 0x1
+end
 @inline function coordinates(quadrant::Quadrant{8})
-    return (quadrant.pointer.x, quadrant.pointer.y, quadrant.pointer.z)
+    GC.@preserve quadrant begin
+        qs = unsafe_load(quadrant.pointer)
+        return (qs.x, qs.y, qs.z)
+    end
 end
-storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T} =
-    unsafe_store!(Ptr{T}(quadrant.pointer.p.user_data), data)
-loaduserdata(quadrant::Quadrant{X,T}) where {X,T} =
-    unsafe_load(Ptr{T}(quadrant.pointer.p.user_data))
+function storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T}
+    GC.@preserve quadrant begin
+        qs = unsafe_load(quadrant.pointer)
+        unsafe_store!(Ptr{T}(qs.p.user_data), data)
+    end
+end
+function loaduserdata(quadrant::Quadrant{X,T}) where {X,T}
+    GC.@preserve quadrant begin
+        unsafe_load(Ptr{T}(unsafe_load(quadrant.pointer).p.user_data))
+    end
+end
 
-struct Tree{X,T,P} <: AbstractArray{Quadrant,1}
+struct Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
     pointer::P
+    forest::Q
 end
 
-Base.size(t::Tree) = (convert(Int, t.pointer.quadrants.elem_count),)
+Base.size(t::Tree) =
+    (convert(Int, (GC.@preserve t unsafe_load(t.pointer).quadrants.elem_count)),)
 function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(t, i)
     GC.@preserve t begin
         Q = pxest_quadrant_t(Val(X))
-        quadrant = Ptr{Q}(t.pointer.quadrants.array + sizeof(Q) * (i - 1))
+        quadrant = Ptr{Q}(unsafe_load(t.pointer).quadrants.array + sizeof(Q) * (i - 1))
         return Quadrant{X,T,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Tree) = IndexLinear()
 
-offset(tree::Tree) = tree.pointer.quadrants_offset
+offset(tree::Tree) = GC.@preserve tree unsafe_load(tree.pointer).quadrants_offset
 
 mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
     pointer::P
     connectivity::C
     comm::MPI.Comm
     function Pxest{4}(
-        pointer::Ptr{p4est},
+        pointer::Ptr{p4est_t},
         connectivity::Connectivity{4},
         comm::MPI.Comm,
         ::Type{T},
@@ -90,7 +110,7 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
         end
     end
     function Pxest{8}(
-        pointer::Ptr{p8est},
+        pointer::Ptr{p8est_t},
         connectivity::Connectivity{8},
         comm::MPI.Comm,
         ::Type{T},
@@ -140,23 +160,27 @@ quadrantstyle(::Pxest{X}) where {X} = X
 quadrantndims(::Pxest{4}) = 2
 quadrantndims(::Pxest{8}) = 3
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
-lengthoflocalquadrants(p::Pxest) = p.pointer.local_num_quadrants
-lengthofglobalquadrants(p::Pxest) = p.pointer.global_num_quadrants
+lengthoflocalquadrants(p::Pxest) = GC.@preserve p unsafe_load(p.pointer).local_num_quadrants
+lengthofglobalquadrants(p::Pxest) =
+    GC.@preserve p unsafe_load(p.pointer).global_num_quadrants
 comm(p::Pxest) = p.comm
 
-function Base.unsafe_convert(::Type{Ptr{p4est}}, p::Pxest{4,T,Ptr{p4est}}) where {T}
+function Base.unsafe_convert(::Type{Ptr{p4est_t}}, p::Pxest{4,T,Ptr{p4est_t}}) where {T}
     return p.pointer
 end
-function Base.unsafe_convert(::Type{Ptr{p8est}}, p::Pxest{8,T,Ptr{p8est}}) where {T}
+function Base.unsafe_convert(::Type{Ptr{p8est_t}}, p::Pxest{8,T,Ptr{p8est_t}}) where {T}
     return p.pointer
 end
 
-Base.size(p::Pxest) = (convert(Int, p.pointer.trees.elem_count),)
+Base.size(p::Pxest) =
+    (convert(Int, (GC.@preserve p unsafe_load(unsafe_load(p.pointer).trees).elem_count)),)
 function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(p, i)
     GC.@preserve p begin
-        tree = unsafe_load(Ptr{pxest_tree_t(Val(X))}(p.pointer.trees.array), i)
-        return Tree{X,T,pxest_tree_t(Val(X))}(tree)
+        TR = pxest_tree_t(Val(X))
+        tree =
+            Ptr{TR}(unsafe_load(unsafe_load(p.pointer).trees).array + sizeof(TR) * (i - 1))
+        return Tree{X,T,Ptr{TR},typeof(p)}(tree, p)
     end
 end
 Base.IndexStyle(::Pxest) = IndexLinear()
@@ -194,15 +218,17 @@ function iterateforest(
     userdata = nothing,
 ) where {X}
     data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
-    ghost = isnothing(ghost) ? C_NULL : ghost
-    forest.pointer.user_pointer = pointer_from_objref(data)
 
+    ghost = isnothing(ghost) ? C_NULL : ghost
     volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
     @assert face === nothing
     @assert edge === nothing
     @assert corner === nothing
 
     GC.@preserve data begin
+        fs = unsafe_load(forest.pointer)
+        fs.user_pointer = pointer_from_objref(data)
+
         if X == 4
             p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
         elseif X == 8
@@ -210,9 +236,9 @@ function iterateforest(
         else
             error("Not implemented")
         end
-    end
 
-    forest.pointer.user_pointer = C_NULL
+        fs.user_pointer = C_NULL
+    end
 
     return
 end
@@ -301,13 +327,15 @@ function coarsen!(
     replace = nothing,
 ) where {X}
     data = Ref((; forest, coarsen, init, replace))
-    forest.pointer.user_pointer = pointer_from_objref(data)
 
     coarsen::Ptr{Cvoid} = isnothing(coarsen) ? C_NULL : generate_coarsen_callback(Val(X))
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
+        fs = unsafe_load(forest.pointer)
+        fs.user_pointer = pointer_from_objref(data)
+
         (pxest_coarsen_ext(Val(X)))(
             forest,
             recursive,
@@ -316,9 +344,9 @@ function coarsen!(
             init,
             replace,
         )
-    end
 
-    forest.pointer.user_pointer = C_NULL
+        fs.user_pointer = C_NULL
+    end
 
     return
 end
@@ -352,17 +380,19 @@ function refine!(
     replace = nothing,
 ) where {X}
     data = Ref((; forest, refine, init, replace))
-    forest.pointer.user_pointer = pointer_from_objref(data)
 
     refine::Ptr{Cvoid} = isnothing(refine) ? C_NULL : generate_refine_callback(Val(X))
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
-    end
+        fs = unsafe_load(forest.pointer)
+        fs.user_pointer = pointer_from_objref(data)
 
-    forest.pointer.user_pointer = C_NULL
+        (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
+
+        fs.user_pointer = C_NULL
+    end
 
     return
 end
@@ -374,16 +404,18 @@ function balance!(
     replace = nothing,
 ) where {X}
     data = Ref((; forest, init, replace))
-    forest.pointer.user_pointer = pointer_from_objref(data)
 
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
-    end
+        fs = unsafe_load(forest.pointer)
+        fs.user_pointer = pointer_from_objref(data)
 
-    forest.pointer.user_pointer = C_NULL
+        (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
+
+        fs.user_pointer = C_NULL
+    end
 
     return
 end
@@ -422,15 +454,17 @@ function partition!(
         (pxest_partition_lnodes(Val(X)))(forest, ghost, lnodes_degree, allow_for_coarsening)
     else
         data = Ref((; forest, weight))
-        forest.pointer.user_pointer = pointer_from_objref(data)
 
         weight::Ptr{Cvoid} = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
 
         GC.@preserve data begin
-            (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
-        end
+            fs = unsafe_load(forest.pointer)
+            fs.user_pointer = pointer_from_objref(data)
 
-        forest.pointer.user_pointer = C_NULL
+            (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
+
+            fs.user_pointer = C_NULL
+        end
     end
 
     return

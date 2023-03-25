@@ -138,80 +138,80 @@ Base.isvalid(c::Connectivity{8}) = p8est_connectivity_is_valid(c.pointer) == 1
 Base.sizeof(c::Connectivity{8}) = Int(p8est_connectivity_memory_used(c.pointer))
 
 function unsafe_vertices(c::Connectivity{X}) where {X}
-    v = unsafe_wrap(
-        Matrix{Cdouble},
-        c.pointer.vertices,
-        (3, Int(c.pointer.num_vertices)),
-        own = false,
-    )
+    cs = unsafe_load(c.pointer)
+    v = unsafe_wrap(Matrix{Cdouble}, cs.vertices, (3, Int(cs.num_vertices)), own = false)
     return reinterpret(reshape, NTuple{3,Cdouble}, v)
 end
 
 function unsafe_trees(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     ttv = unsafe_wrap(
         Matrix{p4est_topidx_t},
-        c.pointer.tree_to_vertex,
-        (X, Int(c.pointer.num_trees)),
+        cs.tree_to_vertex,
+        (X, Int(cs.num_trees)),
         own = false,
     )
     return reinterpret(reshape, NTuple{X,p4est_topidx_t}, ttv)
 end
 
 function unsafe_tree_to_tree(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     sides = X == 4 ? 4 : 6
     ttt = unsafe_wrap(
         Matrix{p4est_topidx_t},
-        c.pointer.tree_to_tree,
-        (sides, Int(c.pointer.num_trees)),
+        cs.tree_to_tree,
+        (sides, Int(cs.num_trees)),
         own = false,
     )
     return reinterpret(reshape, NTuple{sides,p4est_topidx_t}, ttt)
 end
 
 function unsafe_tree_to_face(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     sides = X == 4 ? 4 : 6
-    ttf = unsafe_wrap(
-        Matrix{Int8},
-        c.pointer.tree_to_face,
-        (sides, Int(c.pointer.num_trees)),
-        own = false,
-    )
+    ttf =
+        unsafe_wrap(Matrix{Int8}, cs.tree_to_face, (sides, Int(cs.num_trees)), own = false)
     return reinterpret(reshape, NTuple{sides,Int8}, ttf)
 end
 
 function unsafe_tree_to_corner(c::Connectivity{X}) where {X}
-    s = c.pointer.tree_to_corner == C_NULL ? 0 : Int(c.pointer.num_trees)
-    ttc = unsafe_wrap(Matrix{p4est_topidx_t}, c.pointer.tree_to_corner, (X, s), own = false)
+    cs = unsafe_load(c.pointer)
+    s = cs.tree_to_corner == C_NULL ? 0 : Int(cs.num_trees)
+    ttc = unsafe_wrap(Matrix{p4est_topidx_t}, cs.tree_to_corner, (X, s), own = false)
     return reinterpret(reshape, NTuple{X,p4est_topidx_t}, ttc)
 end
 
 function unsafe_ctt_offset(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     ctt = unsafe_wrap(
         Vector{p4est_topidx_t},
-        c.pointer.ctt_offset,
-        (Int(c.pointer.num_corners + 1),),
+        cs.ctt_offset,
+        (Int(cs.num_corners + 1),),
         own = false,
     )
     return ctt
 end
 
 function unsafe_corner_to_tree_array(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     off = unsafe_ctt_offset(c)
     s = length(off) > 0 ? last(off) : 0
-    return unsafe_wrap(Vector{p4est_topidx_t}, c.pointer.corner_to_tree, (s,), own = false)
+    return unsafe_wrap(Vector{p4est_topidx_t}, cs.corner_to_tree, (s,), own = false)
 end
 
 function unsafe_corner_to_corner_array(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     off = unsafe_ctt_offset(c)
     s = length(off) > 0 ? last(off) : 0
-    return unsafe_wrap(Vector{Int8}, c.pointer.corner_to_corner, (s,), own = false)
+    return unsafe_wrap(Vector{Int8}, cs.corner_to_corner, (s,), own = false)
 end
 
 function unsafe_corner_to_tree(c::Connectivity{X}) where {X}
+    cs = unsafe_load(c.pointer)
     o = unsafe_ctt_offset(c)
     ctt = P4estTypes.unsafe_corner_to_tree_array(c)
     ctc = P4estTypes.unsafe_corner_to_corner_array(c)
-    s = SparseMatrixCSC(c.pointer.num_trees, c.pointer.num_corners, o .+ 1, ctt .+ 1, ctc)
+    s = SparseMatrixCSC(cs.num_trees, cs.num_corners, o .+ 1, ctt .+ 1, ctc)
     return s
 end
 

@@ -2,10 +2,12 @@ module SC
 
 using MPI
 using P4est
-initialized() = sc_package_id()[] >= 0
-finalize() = sc_finalize_noabort()
-module LP
 
+sc_package_id() = unsafe_load(cglobal((:sc_package_id, P4est.LibP4est.libsc), Cint))
+initialized() = sc_package_id() >= 0
+finalize() = sc_finalize_noabort()
+
+module LP
 using P4est
 abstract type LogPriority end
 struct Always <: LogPriority end
@@ -37,12 +39,12 @@ struct SCArray{T} <: AbstractArray{T,1}
 end
 Base.IndexStyle(::SCArray) = IndexLinear()
 function Base.getindex(a::SCArray{T}, i::Int) where {T}
-    return GC.@preserve a unsafe_load(T(a.pointer.array), i)
+    return GC.@preserve a unsafe_load(T(unsafe_load(a.pointer).array), i)
 end
-Base.size(a::SCArray) = (a.pointer.elem_count,)
+Base.size(a::SCArray) = GC.@preserve a (unsafe_load(a.pointer).elem_count,)
 
 end # module
 
-setverbosity(lp::SC.LP.LogPriority) = sc_package_set_verbosity(sc_package_id()[], lp)
+setverbosity(lp::SC.LP.LogPriority) = sc_package_set_verbosity(sc_package_id(), lp)
 
 end # module
