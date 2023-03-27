@@ -49,6 +49,7 @@ using SnoopPrecompile
         MPI.Initialized() || MPI.Init()
         initialize()
         p = pxest(brick(3, 4))
+        p = pxest(brick(3, 4, 2))
     end
 end
 
