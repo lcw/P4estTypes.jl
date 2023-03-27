@@ -164,6 +164,7 @@ lengthoflocalquadrants(p::Pxest) = GC.@preserve p unsafe_load(p.pointer).local_n
 lengthofglobalquadrants(p::Pxest) =
     GC.@preserve p unsafe_load(p.pointer).global_num_quadrants
 comm(p::Pxest) = p.comm
+connectivity(p::Pxest) = p.connectivity
 
 function Base.unsafe_convert(::Type{Ptr{p4est_t}}, p::Pxest{4,T,Ptr{p4est_t}}) where {T}
     return p.pointer

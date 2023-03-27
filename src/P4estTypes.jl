@@ -14,7 +14,7 @@ export level, storeuserdata!, loaduserdata
 export offset
 export iterateforest
 export refine!, coarsen!, balance!, partition!
-export lnodes, ghostlayer
+export lnodes, ghostlayer, connectivity
 
 include("sc.jl")
 
