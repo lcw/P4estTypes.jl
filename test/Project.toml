@@ -1,8 +1,13 @@
 [deps]
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 MPIPreferences = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
+P4est = "7d669430-f675-4ae7-b43e-fab78ec5a902"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
 MPI = "0.20,0.19"
 MPIPreferences = "0.1"
+P4est = "0.4.4"

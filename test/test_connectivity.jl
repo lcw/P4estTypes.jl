@@ -3,6 +3,10 @@ using MPIPreferences
 using P4estTypes
 using Test
 
+if haskey(ENV, "P4ESTTYPES_TEST_BINARY")
+    @test ENV["P4ESTTYPES_TEST_BINARY"] == MPIPreferences.binary
+end
+
 MPI.Init()
 
 let

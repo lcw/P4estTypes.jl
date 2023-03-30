@@ -27,3 +27,57 @@ jobs:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-runtest@latest
+
+  test-system-apt:
+    timeout-minutes: 20
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        mpi:
+          - libmpich-dev
+          - libopenmpi-dev
+        julia_version:
+          - "1"
+      fail-fast: false
+    env:
+      P4ESTTYPES_TEST: P4ESTTYPES_CUSTOM_MPI_CUSTOM
+      P4ESTTYPES_TEST_BINARY: system
+      OMPI_MCA_btl_base_warn_component_unused: 0
+      OMPI_ALLOW_RUN_AS_ROOT: 1
+      OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install MPI via apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $MPI
+        env:
+          MPI: ${{ matrix.mpi }}
+      - uses: julia-actions/setup-julia@latest
+        with:
+          version: ${{ matrix.julia_version }}
+      - uses: julia-actions/cache@v1
+      - name: Build P4est
+        run: |
+          P4EST_RELEASE="2.8"
+          P4EST_PREFIX=$(pwd)/p4est
+          echo "Building P4est ${P4EST_RELEASE} in ${P4EST_PREFIX}."
+          wget https://p4est.github.io/release/p4est-${P4EST_RELEASE}.tar.gz
+          tar xf p4est-${P4EST_RELEASE}.tar.gz
+          pushd p4est-${P4EST_RELEASE}
+          ./configure CC=mpicc --prefix="$P4EST_PREFIX" --enable-mpi
+          make -j 2
+          make install
+          popd
+          echo "P4ESTTYPES_TEST_LIBP4EST=$P4EST_PREFIX/lib/libp4est.so" | tee -a $GITHUB_ENV
+          echo "P4ESTTYPES_TEST_LIBSC=$P4EST_PREFIX/lib/libsc.so" | tee -a $GITHUB_ENV
+          ls -l "$P4EST_PREFIX/lib/libp4est.so"
+          ls -l "$P4EST_PREFIX/lib/libsc.so"
+          echo "Done"
+
+      - name: Configure MPI.jl
+        shell: julia --color=yes --project=. {0}
+        run: |
+          include(joinpath(pwd(), "test", "configure_packages.jl"))
+
+      - uses: julia-actions/julia-runtest@latest
