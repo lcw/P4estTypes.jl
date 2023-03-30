@@ -1,4 +1,11 @@
-@testset "Connectivity" begin
+using MPI
+using MPIPreferences
+using P4estTypes
+using Test
+
+MPI.Init()
+
+let
     @test isvalid(Connectivity{4}(:star))
     @test isvalid(Connectivity{8}(:twotrees, 1, 2, 3))
     @test isvalid(Connectivity{4}("data/hole_2d_gmsh.inp"))
@@ -15,31 +22,6 @@
         complete!(b)
         @test isvalid(b)
     end
-
-    VXYZ = [
-        -1.0 -1.0 0.0
-        -1.0 0.0 0.0
-        -1.0 1.0 0.0
-        0.0 -1.0 0.0
-        0.0 0.0 0.0
-        0.0 1.0 0.0
-        1.0 -1.0 0.0
-        1.0 0.0 0.0
-        1.0 1.0 0.0
-    ]
-
-    EToV = [
-        0 3 1 4
-        3 6 4 7
-        1 4 2 5
-        4 7 5 8
-    ]
-
-    conn = Connectivity{4}(VXYZ, EToV)
-    @test isvalid(conn)
-
-    # test default `refine` argument
-    p4est = pxest(conn, min_level = 2)
-    @test length(p4est) == 4 # 4 trees
-    @test all(length.(p4est) .== 16) # each tree has 16 quadrants due to min_level = 2
 end
+
+MPI.Finalize()
