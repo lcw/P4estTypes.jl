@@ -249,7 +249,7 @@ function brick(
     return brick((l, m, n), (p, q, r))
 end
 
-function Base.show(io::IO, c::Connectivity{X}) where {X}
+function Base.show(io::IO, ::Connectivity{X}) where {X}
     print(io, "Connectivity{", string(X), "}")
 end
 
