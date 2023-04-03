@@ -52,7 +52,7 @@ end
         return (qs.x, qs.y)
     end
 end
-@inline function which_tree(quadrant::Quadrant)
+@inline function unsafe_which_tree(quadrant::Quadrant)
     return GC.@preserve quadrant unsafe_load(quadrant.pointer).p.piggy3.which_tree + 0x1
 end
 @inline function coordinates(quadrant::Quadrant{8})
