@@ -21,6 +21,7 @@ let
     @test isvalid(refine(Connectivity{8}(:twotrees, 1, 2, 3), 2))
 
     for b in (brick((4, 3)), brick((2, 3, 1)))
+        @test sizeof(b) > 0
         reduce!(b)
         @test isvalid(b)
         complete!(b)
