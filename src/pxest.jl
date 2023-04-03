@@ -149,7 +149,7 @@ function pxest(
     forest = Pxest{X}(pointer, connectivity, comm, data_type)
 
     if !isnothing(init_function)
-        init(forest, _, quadrant, _, treeid) = init_function(forest, treeid, quadrant)
+        init(forest, _, quadrant, _, treeid, _) = init_function(forest, treeid, quadrant)
         iterateforest(forest; volume = init)
     end
 
