@@ -187,7 +187,8 @@ end
 Base.IndexStyle(::Pxest) = IndexLinear()
 
 function iterate_volume_callback(info, _)
-    data = unsafe_pointer_to_objref(info.p4est.user_pointer)[]
+    info = unsafe_load(info)
+    data = unsafe_pointer_to_objref(unsafe_load(info.p4est).user_pointer)[]
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
     quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(info.quad)
@@ -210,14 +211,14 @@ end
 end
 
 function iterateforest(
-    forest::Pxest{X};
+    forest::Pxest{X,T,P};
     ghost = nothing,
     volume = nothing,
     face = nothing,
     edge = nothing,
     corner = nothing,
     userdata = nothing,
-) where {X}
+) where {X,T,P}
     data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
 
     ghost = isnothing(ghost) ? C_NULL : ghost
@@ -227,8 +228,11 @@ function iterateforest(
     @assert corner === nothing
 
     GC.@preserve data begin
-        fs = unsafe_load(forest.pointer)
-        fs.user_pointer = pointer_from_objref(data)
+        i = findfirst(isequal(:user_pointer), fieldnames(eltype(P)))
+        offset = fieldoffset(eltype(P), i)
+        ptrtype = Ptr{fieldtype(eltype(P), i)}
+        user_pointer_pointer = reinterpret(ptrtype, forest.pointer + offset)
+        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
         if X == 4
             p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
@@ -238,7 +242,7 @@ function iterateforest(
             error("Not implemented")
         end
 
-        fs.user_pointer = C_NULL
+        unsafe_store!(user_pointer_pointer, C_NULL)
     end
 
     return
