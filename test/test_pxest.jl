@@ -40,6 +40,8 @@ let
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
     partition!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
+
+    @test_nowarn P4estTypes.savevtk("basicbrick", forest)
 end
 
 let
@@ -143,6 +145,8 @@ let
     @test size(mirrors(ghost), 1) >= 0
     @test size(ghosts(ghost), 1) >= 0
     @test lnodes(forest; ghost, degree = 3) isa LNodes
+
+    @test_nowarn P4estTypes.savevtk("basicconn", forest)
 end
 
 MPI.Finalize()

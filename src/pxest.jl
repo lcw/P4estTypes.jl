@@ -27,6 +27,23 @@
 @inline pxest_iter_volume_info_t(::Val{4}) = p4est_iter_volume_info_t
 @inline pxest_iter_volume_info_t(::Val{8}) = p8est_iter_volume_info_t
 
+function _p4est_vtk_write_file(forest, prefix)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_write_file(
+        forest::Ptr{p4est_t},
+        C_NULL::Ptr{Cvoid},
+        prefix::Cstring,
+    )::Cvoid
+end
+function _p8est_vtk_write_file(forest, prefix)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_write_file(
+        forest::Ptr{p8est_t},
+        C_NULL::Ptr{Cvoid},
+        prefix::Cstring,
+    )::Cvoid
+end
+@inline pxest_vtk_write_file(::Val{4}) = _p4est_vtk_write_file
+@inline pxest_vtk_write_file(::Val{8}) = _p8est_vtk_write_file
+
 @inline CONNECT_FULL(::Val{4}) = P4EST_CONNECT_FULL
 @inline CONNECT_FULL(::Val{8}) = P8EST_CONNECT_FULL
 @inline CONNECT_FACE(::Val{4}) = P4EST_CONNECT_FACE
@@ -502,4 +519,8 @@ end
 
 function Base.show(io::IO, q::Quadrant{X}) where {X}
     print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
+end
+
+function savevtk(prefix, forest::Pxest{X}) where {X}
+    (pxest_vtk_write_file(Val(X)))(forest, prefix)
 end
