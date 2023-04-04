@@ -16,6 +16,7 @@ export offset, coordinates
 export iterateforest
 export refine!, coarsen!, balance!, partition!
 export lnodes, ghostlayer, connectivity
+export ghosts, mirrors
 
 include("sc.jl")
 
