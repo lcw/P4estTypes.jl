@@ -327,7 +327,7 @@ function coarsen!(
     forest::Pxest{X};
     recursive = false,
     callback_orphans = false,
-    coarsen = nothing,
+    coarsen = (_...) -> false,
     init = nothing,
     replace = nothing,
 ) where {X}
