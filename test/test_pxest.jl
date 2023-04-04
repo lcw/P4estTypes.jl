@@ -136,6 +136,13 @@ let
     iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
     partition!(forest)
     iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
+
+    ghost = ghostlayer(forest)
+    @test mirrors(ghost) isa AbstractArray{Quadrant,1}
+    @test ghosts(ghost) isa AbstractArray{Quadrant,1}
+    @test size(mirrors(ghost), 1) >= 0
+    @test size(ghosts(ghost), 1) >= 0
+    @test lnodes(forest; ghost, degree = 3) isa LNodes
 end
 
 MPI.Finalize()
