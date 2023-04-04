@@ -160,9 +160,10 @@ quadrantstyle(::Pxest{X}) where {X} = X
 quadrantndims(::Pxest{4}) = 2
 quadrantndims(::Pxest{8}) = 3
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
-lengthoflocalquadrants(p::Pxest) = GC.@preserve p unsafe_load(p.pointer).local_num_quadrants
+lengthoflocalquadrants(p::Pxest) =
+    GC.@preserve p PointerWrapper(p.pointer).local_num_quadrants[]
 lengthofglobalquadrants(p::Pxest) =
-    GC.@preserve p unsafe_load(p.pointer).global_num_quadrants
+    GC.@preserve p PointerWrapper(p.pointer).global_num_quadrants[]
 comm(p::Pxest) = p.comm
 connectivity(p::Pxest) = p.connectivity
 
@@ -174,13 +175,13 @@ function Base.unsafe_convert(::Type{Ptr{p8est_t}}, p::Pxest{8,T,Ptr{p8est_t}}) w
 end
 
 Base.size(p::Pxest) =
-    (convert(Int, (GC.@preserve p unsafe_load(unsafe_load(p.pointer).trees).elem_count)),)
+    (convert(Int, (GC.@preserve p PointerWrapper(p.pointer).trees.elem_count[])),)
 function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(p, i)
     GC.@preserve p begin
         TR = pxest_tree_t(Val(X))
         tree =
-            Ptr{TR}(unsafe_load(unsafe_load(p.pointer).trees).array + sizeof(TR) * (i - 1))
+            Ptr{TR}(pointer(PointerWrapper(p.pointer).trees.array) + sizeof(TR) * (i - 1))
         return Tree{X,T,Ptr{TR},typeof(p)}(tree, p)
     end
 end
