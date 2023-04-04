@@ -59,7 +59,7 @@ jobs:
       - uses: julia-actions/cache@v1
       - name: Build P4est
         run: |
-          P4EST_RELEASE="2.8"
+          P4EST_RELEASE="2.8.5"
           P4EST_PREFIX=$(pwd)/p4est
           echo "Building P4est ${P4EST_RELEASE} in ${P4EST_PREFIX}."
           wget https://p4est.github.io/release/p4est-${P4EST_RELEASE}.tar.gz
