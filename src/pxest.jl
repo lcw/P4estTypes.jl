@@ -124,6 +124,17 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
     end
 end
 
+function unsafe_get_user_pointer_pointer(forest::Pxest{X,T,P}) where {X,T,P}
+    return unsafe_get_user_pointer_pointer(forest.pointer)
+end
+
+function unsafe_get_user_pointer_pointer(ptr::Ptr{F}) where {F<:Union{p4est_t,p8est_t}}
+    i = findfirst(isequal(:user_pointer), fieldnames(F))
+    offset = fieldoffset(F, i)
+    ptrtype = Ptr{fieldtype(F, i)}
+    return reinterpret(ptrtype, ptr + offset)
+end
+
 function pxest(
     connectivity::Connectivity{X};
     comm = MPI.COMM_WORLD,
@@ -189,7 +200,8 @@ Base.IndexStyle(::Pxest) = IndexLinear()
 
 function iterate_volume_callback(info, _)
     info = unsafe_load(info)
-    data = unsafe_pointer_to_objref(unsafe_load(info.p4est).user_pointer)[]
+    data =
+        unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(info.p4est)))[]
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
     quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(info.quad)
@@ -212,14 +224,14 @@ end
 end
 
 function iterateforest(
-    forest::Pxest{X,T,P};
+    forest::Pxest{X};
     ghost = nothing,
     volume = nothing,
     face = nothing,
     edge = nothing,
     corner = nothing,
     userdata = nothing,
-) where {X,T,P}
+) where {X}
     data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
 
     ghost = isnothing(ghost) ? C_NULL : ghost
@@ -229,10 +241,7 @@ function iterateforest(
     @assert corner === nothing
 
     GC.@preserve data begin
-        i = findfirst(isequal(:user_pointer), fieldnames(eltype(P)))
-        offset = fieldoffset(eltype(P), i)
-        ptrtype = Ptr{fieldtype(eltype(P), i)}
-        user_pointer_pointer = reinterpret(ptrtype, forest.pointer + offset)
+        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
         unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
         if X == 4
@@ -250,7 +259,7 @@ function iterateforest(
 end
 
 function init_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -273,7 +282,7 @@ end
 end
 
 function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, incoming)
-    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -304,7 +313,7 @@ end
 end
 
 function coarsen_callback(forest, treeid, children)
-    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -341,8 +350,8 @@ function coarsen!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        fs = unsafe_load(forest.pointer)
-        fs.user_pointer = pointer_from_objref(data)
+        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
+        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
         (pxest_coarsen_ext(Val(X)))(
             forest,
@@ -353,14 +362,14 @@ function coarsen!(
             replace,
         )
 
-        fs.user_pointer = C_NULL
+        unsafe_store!(user_pointer_pointer, C_NULL)
     end
 
     return
 end
 
 function refine_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -394,12 +403,12 @@ function refine!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        fs = unsafe_load(forest.pointer)
-        fs.user_pointer = pointer_from_objref(data)
+        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
+        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
         (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
 
-        fs.user_pointer = C_NULL
+        unsafe_store!(user_pointer_pointer, C_NULL)
     end
 
     return
@@ -417,19 +426,19 @@ function balance!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        fs = unsafe_load(forest.pointer)
-        fs.user_pointer = pointer_from_objref(data)
+        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
+        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
         (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
 
-        fs.user_pointer = C_NULL
+        unsafe_store!(user_pointer_pointer, C_NULL)
     end
 
     return
 end
 
 function weight_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(forest.user_pointer)[]
+    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -466,12 +475,12 @@ function partition!(
         weight::Ptr{Cvoid} = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
 
         GC.@preserve data begin
-            fs = unsafe_load(forest.pointer)
-            fs.user_pointer = pointer_from_objref(data)
+            user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
+            unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
 
             (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
 
-            fs.user_pointer = C_NULL
+            unsafe_store!(user_pointer_pointer, C_NULL)
         end
     end
 
