@@ -327,12 +327,14 @@ end
 function coarsen!(
     forest::Pxest{X};
     recursive = false,
-    callback_orphans = false,
     coarsen = (_...) -> false,
     init = nothing,
     replace = nothing,
 ) where {X}
     data = Ref((; forest, coarsen, init, replace))
+
+    # Right now we do not support loading a orphans
+    callback_orphans = false
 
     coarsen::Ptr{Cvoid} = isnothing(coarsen) ? C_NULL : generate_coarsen_callback(Val(X))
     init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
