@@ -94,6 +94,48 @@ let
     @test P4estTypes.quadrantstyle(forest) == 4
     @test P4estTypes.quadrantndims(forest) == 2
     @test P4estTypes.typeofquadrantuserdata(forest) == Foo
+
+    coarsen!(forest)
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+    refine!(forest)
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+    balance!(forest)
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+    partition!(forest)
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+
+    function replace(_, _, outgoing, incoming)
+        for q in incoming
+            d = loaduserdata(q)
+            storeuserdata!(q, Foo(d.a, length(outgoing), 5.0))
+        end
+    end
+    partition!(forest; allow_for_coarsening = true)
+    coarsen!(forest; init = foo_init, replace, coarsen = (_, t, _) -> iseven(t))
+    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
+    iterateforest(
+        forest;
+        volume = (_, _, q, _, t, _) -> (@test isodd(t) || loaduserdata(q).b == 4.0),
+    )
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 40
+    refine!(forest; init = foo_init, replace, refine = (_, t, _) -> iseven(t))
+    iterateforest(forest; volume = foo_check)
+    iterateforest(
+        forest;
+        volume = (_, _, q, _, t, _) -> (@test isodd(t) || loaduserdata(q).b == 1.0),
+    )
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+
+    refine!(
+        forest;
+        init = foo_init,
+        replace,
+        refine = (_, t, q) -> t == 1 && coordinates(q) == (0, 0),
+    )
+    balance!(forest; init = foo_init, replace)
+    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
+    partition!(forest)
+    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
 end
 
 MPI.Finalize()
