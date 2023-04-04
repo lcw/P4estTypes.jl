@@ -6,7 +6,8 @@ using P4est
 using RecipesBase
 using SparseArrays
 
-export Connectivity, Locidx, Gloidx
+export Quadrant, Connectivity, Pxest, GhostLayer, LNodes
+export Locidx, Gloidx
 
 export refine, reduce!, complete!, brick, pxest
 export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
