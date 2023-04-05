@@ -257,7 +257,7 @@ function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, c::Connectivity{X})
     show(io, c)
     if !get(io, :compact, false)
         GC.@preserve c begin
-            # Should we print everthing 1 based?
+            # Should we print everything 1 based?
             println(io, "\nnote: the following entries are zero-based")
             println(io, "\ntrees:")
             show(io, mime, unsafe_trees(c))
