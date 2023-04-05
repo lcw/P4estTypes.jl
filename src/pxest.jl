@@ -27,22 +27,133 @@
 @inline pxest_iter_volume_info_t(::Val{4}) = p4est_iter_volume_info_t
 @inline pxest_iter_volume_info_t(::Val{8}) = p8est_iter_volume_info_t
 
-function _p4est_vtk_write_file(forest, prefix)
-    @ccall P4est.LibP4est.libp4est.p4est_vtk_write_file(
+# TODO move vtk wrapping functions to P4est.jl
+function _p4est_vtk_context_new(forest, prefix)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_context_new(
         forest::Ptr{p4est_t},
-        C_NULL::Ptr{Cvoid},
         prefix::Cstring,
-    )::Cvoid
+    )::Ptr{Cvoid}
 end
-function _p8est_vtk_write_file(forest, prefix)
-    @ccall P4est.LibP4est.libp4est.p8est_vtk_write_file(
+function _p8est_vtk_context_new(forest, prefix)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_context_new(
         forest::Ptr{p8est_t},
-        C_NULL::Ptr{Cvoid},
         prefix::Cstring,
+    )::Ptr{Cvoid}
+end
+@inline pxest_vtk_context_new(::Val{4}) = _p4est_vtk_context_new
+@inline pxest_vtk_context_new(::Val{8}) = _p8est_vtk_context_new
+
+function _p4est_vtk_context_set_geom(context, geometry)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_context_set_geom(
+        context::Ptr{Cvoid},
+        geometry::Ptr{Cvoid},
     )::Cvoid
 end
-@inline pxest_vtk_write_file(::Val{4}) = _p4est_vtk_write_file
-@inline pxest_vtk_write_file(::Val{8}) = _p8est_vtk_write_file
+function _p8est_vtk_context_set_geom(context, geometry)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_context_set_geom(
+        context::Ptr{Cvoid},
+        geometry::Ptr{Cvoid},
+    )::Cvoid
+end
+@inline pxest_vtk_context_set_geom(::Val{4}) = _p4est_vtk_context_set_geom
+@inline pxest_vtk_context_set_geom(::Val{8}) = _p8est_vtk_context_set_geom
+
+function _p4est_vtk_context_set_scale(context, scale)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_context_set_scale(
+        context::Ptr{Cvoid},
+        scale::Cdouble,
+    )::Cvoid
+end
+function _p8est_vtk_context_set_scale(context, scale)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_context_set_scale(
+        context::Ptr{Cvoid},
+        scale::Cdouble,
+    )::Cvoid
+end
+@inline pxest_vtk_context_set_scale(::Val{4}) = _p4est_vtk_context_set_scale
+@inline pxest_vtk_context_set_scale(::Val{8}) = _p8est_vtk_context_set_scale
+
+function _p4est_vtk_context_set_continuous(context, continuous)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_context_set_continuous(
+        context::Ptr{Cvoid},
+        continuous::Cint,
+    )::Cvoid
+end
+function _p8est_vtk_context_set_continuous(context, continuous)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_context_set_continuous(
+        context::Ptr{Cvoid},
+        continuous::Cint,
+    )::Cvoid
+end
+@inline pxest_vtk_context_set_continuous(::Val{4}) = _p4est_vtk_context_set_continuous
+@inline pxest_vtk_context_set_continuous(::Val{8}) = _p8est_vtk_context_set_continuous
+
+function _p4est_vtk_write_header(context)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_write_header(context::Ptr{Cvoid})::Ptr{Cvoid}
+end
+function _p8est_vtk_write_header(context)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_write_header(context::Ptr{Cvoid})::Ptr{Cvoid}
+end
+@inline pxest_vtk_write_header(::Val{4}) = _p4est_vtk_write_header
+@inline pxest_vtk_write_header(::Val{8}) = _p8est_vtk_write_header
+
+function _p4est_vtk_write_footer(context)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_write_footer(context::Ptr{Cvoid})::Cint
+end
+function _p8est_vtk_write_footer(context)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_write_footer(context::Ptr{Cvoid})::Cint
+end
+@inline pxest_vtk_write_footer(::Val{4}) = _p4est_vtk_write_footer
+@inline pxest_vtk_write_footer(::Val{8}) = _p8est_vtk_write_footer
+
+function _p4est_vtk_write_cell_data(
+    context,
+    write_tree,
+    write_level,
+    write_rank,
+    wrap_rank,
+    num_cell_scalars,
+    num_cell_vectors,
+    fieldnames,
+    values,
+)
+    @ccall P4est.LibP4est.libp4est.p4est_vtk_write_cell_data(
+        context::Ptr{Cvoid},
+        write_tree::Cint,
+        write_level::Cint,
+        write_rank::Cint,
+        wrap_rank::Cint,
+        num_cell_scalars::Cint,
+        num_cell_vectors::Cint,
+        fieldnames::Ptr{Cvoid},
+        values::Ptr{Cvoid},
+    )::Ptr{Cvoid}
+end
+function _p8est_vtk_write_cell_data(
+    context,
+    write_tree,
+    write_level,
+    write_rank,
+    wrap_rank,
+    num_cell_scalars,
+    num_cell_vectors,
+    fieldnames,
+    values,
+)
+    @ccall P4est.LibP4est.libp4est.p8est_vtk_write_cell_data(
+        context::Ptr{Cvoid},
+        write_tree::Cint,
+        write_level::Cint,
+        write_rank::Cint,
+        wrap_rank::Cint,
+        num_cell_scalars::Cint,
+        num_cell_vectors::Cint,
+        fieldnames::Ptr{Cvoid},
+        values::Ptr{Cvoid},
+    )::Ptr{Cvoid}
+end
+@inline pxest_vtk_write_cell_data(::Val{4}) = _p4est_vtk_write_cell_data
+@inline pxest_vtk_write_cell_data(::Val{8}) = _p8est_vtk_write_cell_data
 
 @inline CONNECT_FULL(::Val{4}) = P4EST_CONNECT_FULL
 @inline CONNECT_FULL(::Val{8}) = P8EST_CONNECT_FULL
@@ -527,6 +638,40 @@ function Base.show(io::IO, q::Quadrant{X}) where {X}
     print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
 end
 
-function savevtk(prefix, forest::Pxest{X}) where {X}
-    (pxest_vtk_write_file(Val(X)))(forest, prefix)
+function savevtk(
+    prefix,
+    forest::Pxest{X};
+    scale = 1.0,
+    writetree = true,
+    writelevel = true,
+    writerank = true,
+    wraprank = false,
+) where {X}
+    context = (pxest_vtk_context_new(Val(X)))(forest, prefix)
+    (pxest_vtk_context_set_geom(Val(X)))(context, C_NULL)
+    (pxest_vtk_context_set_scale(Val(X)))(context, scale)
+    (pxest_vtk_context_set_continuous(Val(X)))(context, true)
+    context = (pxest_vtk_write_header(Val(X)))(context)
+    if context == C_NULL
+        error("pxest_vtk: Error writing header")
+    end
+
+    context = (pxest_vtk_write_cell_data(Val(X)))(
+        context,
+        writetree,
+        writelevel,
+        writerank,
+        wraprank,
+        0,
+        0,
+        C_NULL,
+        C_NULL,
+    )
+    if context == C_NULL
+        error("pxest_vtk: Error writing cell data")
+    end
+
+    if (pxest_vtk_write_footer(Val(X)))(context) != 0
+        error("pxest_vtk: Error writing footer")
+    end
 end
