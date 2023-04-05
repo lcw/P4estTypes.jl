@@ -13,15 +13,15 @@ for JLFILE in $JLFILES;
 do
   MKTEMPLATE=$(basename "$JLFILE").XXXXXXXX.jl
   TEMPFILE=$(mktemp -t "$MKTEMPLATE") || exit 1
-  TEMPFILE_FORMATED=$(mktemp -t "$MKTEMPLATE") || exit 1
+  TEMPFILE_FORMATTED=$(mktemp -t "$MKTEMPLATE") || exit 1
   git show :"$JLFILE" > "$TEMPFILE"
-  git show :"$JLFILE" > "$TEMPFILE_FORMATED"
-  julia -J"$JFDIR"/scripts/juliaformatter.so --startup-file=no --color=no --project="$JFDIR" -e "using JuliaFormatter; format(\"$TEMPFILE_FORMATED\")"
-  if diff --color -u "$TEMPFILE" "$TEMPFILE_FORMATED"
+  git show :"$JLFILE" > "$TEMPFILE_FORMATTED"
+  julia -J"$JFDIR"/scripts/juliaformatter.so --startup-file=no --color=no --project="$JFDIR" -e "using JuliaFormatter; format(\"$TEMPFILE_FORMATTED\")"
+  if diff --color -u "$TEMPFILE" "$TEMPFILE_FORMATTED"
   then
-    rm -f "$TEMPFILE" "$TEMPFILE_FORMATED"
+    rm -f "$TEMPFILE" "$TEMPFILE_FORMATTED"
   else
-    rm -f "$TEMPFILE" "$TEMPFILE_FORMATED"
+    rm -f "$TEMPFILE" "$TEMPFILE_FORMATTED"
     NEEDS_FORMAT=1
     echo >&2 "$JLFILE needs to be indented with:"
     echo >&2 "   julia -J\"$JFDIR\"/scripts/juliaformatter.so --startup-file=no --color=no --project=\"$JFDIR\" -e \"using JuliaFormatter; format(\\\"$GIT_DIR/../$JLFILE\\\")\""
