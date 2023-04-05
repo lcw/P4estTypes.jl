@@ -1,0 +1,46 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - 'master'
+    tags: '*'
+    paths-ignore:
+      - '.github/dependabot.yml'
+      - '.github/workflows/CI.yml'
+      - '.github/workflows/CompatHelper.yml'
+      - '.github/workflows/TagBot.yml'
+      - '.github/workflows/Invalidations.yml'
+  pull_request:
+    paths-ignore:
+      - '.github/dependabot.yml'
+      - '.github/workflows/CI.yml'
+      - '.github/workflows/CompatHelper.yml'
+      - '.github/workflows/TagBot.yml'
+      - '.github/workflows/Invalidations.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1'
+          show-versioninfo: true
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Install dependencies
+        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - uses: julia-actions/julia-docdeploy@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          julia --project=docs --color=yes -e '
+            using Documenter: DocMeta, doctest
+            using P4estTypes
+            DocMeta.setdocmeta!(P4estTypes, :DocTestSetup, :(using P4estTypes); recursive=true)
+            doctest(P4estTypes)'
