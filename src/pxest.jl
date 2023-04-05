@@ -253,9 +253,15 @@ function iterateforest(
 
     ghost = isnothing(ghost) ? C_NULL : ghost
     volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
-    @assert face === nothing
-    @assert edge === nothing
-    @assert corner === nothing
+    if face !== nothing
+        error("Face iteration not implemented")
+    end
+    if edge !== nothing
+        error("Edge iteration not implemented")
+    end
+    if corner !== nothing
+        error("Corner iteration not implemented")
+    end
 
     GC.@preserve data begin
         user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
