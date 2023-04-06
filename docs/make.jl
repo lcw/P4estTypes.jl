@@ -14,8 +14,14 @@ makedocs(;
         edit_link = "master",
         assets = String[],
     ),
-    pages = ["Home" => "index.md"],
+    pages = [
+        "Home" => "index.md"
+        "Usage" => "usage.md"
+        "Reference" => "reference.md"
+        "Index" => "refindex.md"
+    ],
     checkdocs = :exports,
+    strict = true,
 )
 
 deploydocs(;
