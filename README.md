@@ -1,7 +1,7 @@
 # P4est interface using types for the Julia language
 <p align="center">
   <a href="#quick-start">Quick start</a> •
-  <a href="https://lcw.github.io/P4estTypes.jl/stable/">Documentation</a> •
+  <a href="https://lcw.github.io/P4estTypes.jl/dev/">Documentation</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#citation">Citation</a>
 </p>
@@ -50,7 +50,7 @@ partition!(forest)
 
 ![Alt text](docs/src/figures/readme/forest_3d.png?raw=true "Forest-of-octrees")
 
-Please see the [documentation](https://lcw.github.io/P4estTypes.jl/stable/)
+Please see the [documentation](https://lcw.github.io/P4estTypes.jl/dev/)
 for more detailed instructions on using the package.
 
 ## Contributing
