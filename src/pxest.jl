@@ -155,54 +155,157 @@ end
 @inline pxest_vtk_write_cell_data(::Val{4}) = _p4est_vtk_write_cell_data
 @inline pxest_vtk_write_cell_data(::Val{8}) = _p8est_vtk_write_cell_data
 
+"""
+    P4estTypes.CONNECT_FULL(::Val{4})
+
+Returns an integer indicating connecting quadrants across faces and corners.
+"""
 @inline CONNECT_FULL(::Val{4}) = P4EST_CONNECT_FULL
+"""
+    P4estTypes.CONNECT_FULL(::Val{8})
+
+Returns an integer indicating connecting octants across faces, edges,
+and corners.
+"""
 @inline CONNECT_FULL(::Val{8}) = P8EST_CONNECT_FULL
+"""
+    P4estTypes.CONNECT_FACE(::Val{4})
+
+Returns an integer indicating connecting quadrants across faces.
+"""
 @inline CONNECT_FACE(::Val{4}) = P4EST_CONNECT_FACE
+"""
+    P4estTypes.CONNECT_FACE(::Val{8})
+
+Returns an integer indicating connecting octants across faces.
+"""
 @inline CONNECT_FACE(::Val{8}) = P8EST_CONNECT_FACE
+"""
+    P4estTypes.CONNECT_CORNER(::Val{4})
+
+Returns an integer indicating connecting quadrants across faces and corners.
+"""
 @inline CONNECT_CORNER(::Val{4}) = P4EST_CONNECT_CORNER
+"""
+    P4estTypes.CONNECT_CORNER(::Val{8})
+
+Returns an integer indicating connecting octants across faces, edges,
+and corners.
+"""
 @inline CONNECT_CORNER(::Val{8}) = P8EST_CONNECT_CORNER
+"""
+    P4estTypes.CONNECT_EDGE(::Val{8})
+
+Returns an integer indicating connecting octants across faces and edges.
+"""
 @inline CONNECT_EDGE(::Val{8}) = P8EST_CONNECT_EDGE
 
 const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
 
-# X = 4 or 8
-# T = user data type
+"""
+    Quadrant{X,T,P}
+
+Stores a Pxest{X,T} quadrant (where `X=4` indicates a quadrant
+and `X=8` indicates an octant; quadrant is used both as the general
+term and the term for the 2D object) with user data of type `T`.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
 struct Quadrant{X,T,P}
+    """The pointer (of type `P`) can be a pointer to either a
+   `P4estTypes.P4est.p4est_quadrant` or a
+   `P4estTypes.P4est.p8est_quadrant`.  See the help
+   documentation for these types for more information about the
+   underlying p4est structures. """
     pointer::P
 end
 
+"""
+    level(quadrant::Quadrant)
+
+Returns the level of refinement for the quadrant.  Level 0 is the coarsest
+level and `P4estTypes.P4est.P4EST_QMAXLEVEL` is the maximum refinement level.
+"""
 @inline level(quadrant::Quadrant) =
     GC.@preserve quadrant unsafe_load(quadrant.pointer).level
+
+"""
+    coordinates(quadrant::Quadrant{4})
+
+Returns a tuple of the quadrant's integer coordinates inside its tree.
+"""
 @inline function coordinates(quadrant::Quadrant{4})
     GC.@preserve quadrant begin
         qs = unsafe_load(quadrant.pointer)
         return (qs.x, qs.y)
     end
 end
+
+"""
+    unsafe_which_tree(quadrant::Quadrant)
+
+Returns the `which_tree` field of the underlying quadrant.  This value is only
+sometimes set so the function is marked unsafe.
+"""
 @inline function unsafe_which_tree(quadrant::Quadrant)
     return GC.@preserve quadrant unsafe_load(quadrant.pointer).p.piggy3.which_tree + 0x1
 end
+
+"""
+    coordinates(quadrant::Quadrant{8})
+
+Returns a tuple of the quadrant's integer coordinates inside its tree.
+"""
 @inline function coordinates(quadrant::Quadrant{8})
     GC.@preserve quadrant begin
         qs = unsafe_load(quadrant.pointer)
         return (qs.x, qs.y, qs.z)
     end
 end
+
+"""
+    storeuserdata!(quadrant::Quadrant, data)
+
+Store the user data `data` associated with the `quadrant`.
+"""
 function storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T}
     GC.@preserve quadrant begin
         qs = unsafe_load(quadrant.pointer)
         unsafe_store!(Ptr{T}(qs.p.user_data), data)
     end
 end
+
+"""
+    loaduserdata(quadrant::Quadrant, data)
+
+Return the user data `data` associated with the `quadrant`.
+"""
 function loaduserdata(quadrant::Quadrant{X,T}) where {X,T}
     GC.@preserve quadrant begin
         unsafe_load(Ptr{T}(unsafe_load(quadrant.pointer).p.user_data))
     end
 end
 
+"""
+    Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
+
+Stores the quadrants in a tree of a Pxest{X, T}.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
 struct Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
+    """The pointer (of type `P`) can be a pointer to either a
+    `P4estTypes.P4est.p4est_tree` or a
+    `P4estTypes.P4est.p8est_tree`.  See the help documentation
+    for these types for more information about the underlying
+    p4est structures."""
     pointer::P
+    """The forest (of type `Q`) the tree is associated with.  This is stored
+    so the forest will not be reclaimed by the garbage collector too early.
+    """
     forest::Q
 end
 
@@ -218,11 +321,54 @@ function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
 end
 Base.IndexStyle(::Tree) = IndexLinear()
 
+"""
+    offset(tree::Tree)
+
+The cumulative sum of the quadrants over earlier trees on this rank (locals
+only).
+"""
 offset(tree::Tree) = GC.@preserve tree unsafe_load(tree.pointer).quadrants_offset
 
+"""
+    Pxest{X,T,P,C} <: AbstractArray{P4estTypes.Tree,1}
+
+Stores the forest of quadtrees (when `X=4`) or octrees (when `X=8`).  The quadrants
+have user data of type `T`.
+
+This forest of octrees can be accessed in two ways.  First, as an array-of-arrays.
+Each rank holds an array of quadrants for each tree of the [`Connectivity`](@ref)
+associated with the forest. (Note, the quadrants are distributed among the ranks.
+So, each rank will only have access to the quadrants it owns.) Second, using
+`iterateforest` to iterate over the volumes, faces, edges, and corners of the
+forest via callback functions.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+
+# See also
+- [`pxest`](@ref): a function that constructs a `Pxest` from a [`Connectivity`](@ref).
+- [`iterateforest`](@ref): a function to iterate over the volumes, faces, edges, and
+  corners of the forest.
+- [`refine!`](@ref): refine the quadrants of the forest.
+- [`coarsen!`](@ref): coarsen the quadrants of the forest.
+- [`balance!`](@ref): two-to-one balance the quadrants of the forest.
+- [`partition!`](@ref): partition the quadrants of the forest.
+- [`ghostlayer`](@ref): get the ghost layer of quadrants for the forest.
+- [`lnodes`](@ref): get a global node numbering.
+- [`P4estTypes.savevtk`](@ref): save a VTK representation of the forest.
+"""
 mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
+    """The pointer (of type `P`) can be a pointer to either a
+    `P4estTypes.P4est.LibP4est.p4est` or a
+    `P4estTypes.P4est.LibP4est.p8est`.  See the help documentation for these
+    types for more information about the underlying p4est structures."""
     pointer::P
+    """The connectivity (of type `C`) the forest is associated with.  This is
+    stored so the connectivity will not be reclaimed by the garbage collector
+    too early."""
     connectivity::C
+    """The MPI Communicator that includes the ranks participating in the
+    forest."""
     comm::MPI.Comm
     function Pxest{4}(
         pointer::Ptr{p4est_t},
@@ -263,6 +409,31 @@ function unsafe_get_user_pointer_pointer(ptr::Ptr{F}) where {F<:Union{p4est_t,p8
     return reinterpret(ptrtype, ptr + offset)
 end
 
+"""
+    pxest(connectivity::Connectivity{X}; kw...) where {X}
+
+Generate a distributed forest of quadtrees (if `X=4`) or octrees (if `X=8`)
+based on `connectivity`.  Each element of `connectivity` becomes a tree root.
+
+The connectivity is duplicated on all ranks but the leaves of the forest
+are split (based on a space-filling curve order) among the ranks.
+
+The keyword arguments (`kw...`) that control the construction of the forest
+are:
+
+ - `comm = MPI.COMM_WORLD`: the MPI Communicator object of the ranks sharing
+    the forest.
+ - `min_quadrants = 0`: the minimum number of quadrants per rank.  (This makes
+   the initial refinement pattern `MPI.Comm_size` specific.)
+ - `min_level = 0`: the minimum level of quadrant refinement for the forest.
+ - `fill_uniform = true`: if `true` the forest will be filled with a uniform
+   mesh otherwise it is the coarsest possible mesh.
+ - `data_type = Nothing`: an `isbitstype` of the user data stored for each
+   quadrant.
+ - `init_function = nothing`: callback function with
+   prototype `init_function(forest, treeid, quadrant)` called for each quadrant
+   to initialized the user data.
+"""
 function pxest(
     connectivity::Connectivity{X};
     comm = MPI.COMM_WORLD,
@@ -295,15 +466,54 @@ function pxest(
     return forest
 end
 
+"""
+    quadrantstyle(forest)
+
+Returns 4 if the `forest` quadrants are 2D and 8 if they are 3D.
+"""
 quadrantstyle(::Pxest{X}) where {X} = X
+
+"""
+    quadrantndims(forest)
+
+Returns 2 if the `forest` quadrants are 2D and 3 if they are 3D.
+"""
+function quadrantstyle end
 quadrantndims(::Pxest{4}) = 2
 quadrantndims(::Pxest{8}) = 3
+
+"""
+    typeofquadrantuserdata(forest)
+
+Return the user data type for the user data stored for each quadrant.
+"""
 typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
+
+"""
+    lengthoflocalquadrants(forest)
+
+Return the number of quadrants local to the rank.
+"""
 lengthoflocalquadrants(p::Pxest) =
     GC.@preserve p PointerWrapper(p.pointer).local_num_quadrants[]
+"""
+    lengthofglobalquadrants(forest)
+
+Return the number of quadrants distributed across the whole forest.
+"""
 lengthofglobalquadrants(p::Pxest) =
     GC.@preserve p PointerWrapper(p.pointer).global_num_quadrants[]
+"""
+    comm(forest)
+
+Return the MPI Communicator used by the forest.
+"""
 comm(p::Pxest) = p.comm
+"""
+    connectivity(forest)
+
+Return the [`Connectivity`](@ref) used by the forest.
+"""
 connectivity(p::Pxest) = p.connectivity
 
 function Base.unsafe_convert(::Type{Ptr{p4est_t}}, p::Pxest{4,T,Ptr{p4est_t}}) where {T}
@@ -351,6 +561,28 @@ end
     end
 end
 
+"""
+    iterateforest(forest; kw...)
+
+Execute the callbacks passed as keyword arguments for every volume, face,
+edge, and corner of the rank-local forest.
+
+The keyword arguments (`kw...`) for the iteration are:
+ - `ghost = nothing`: the ghost layer associated for the mesh.  Used in
+   `face`, `edge`, and `corner` callbacks for neighboring elements not
+   rank local.
+ - `volume = nothing`: Callback used for every volume (aka quadrant) of
+   the local forest with the prototype
+   `volume(forest, ghost, quadrant, quadid, treeid, userdata)`.
+ - `face = nothing`: Not implemented yet.
+ - `edge = nothing`: Not implemented yet.
+ - `corner = nothing`: Not implemented yet.
+ - `userdata = nothing`: User data passed to the callbacks.
+
+See `@doc P4estTypes.P4est.p4est_iterate` and
+`@doc P4estTypes.P4est.p8est_iterate` for more information about
+the iteration.
+"""
 function iterateforest(
     forest::Pxest{X};
     ghost = nothing,
@@ -467,6 +699,31 @@ end
     end
 end
 
+
+"""
+    coarsen!(forest; coarsen = (_...) -> false, kw...)
+
+Coarsen the quadrants of the forest determined by the `coarsen` callback.
+The `coarsen(forest, treeid, siblings)` callback is called for each set
+of sibling quadrants local to the rank that are eligible for coarsening.
+If the callback returns `true` the `siblings` will coarsen into one quadrant
+otherwise they will be untouched.
+
+The other keyword arguments (`kw...`) for the coarsening are:
+ - `recursive = false`: if `true` coarsening will be recursive otherwise each
+   set of rank-local siblings will only be visited once.
+ - `init = nothing`: callback function with prototype
+   `init(forest, treeid, quadrant)` called for each quadrant created to
+   initialized the user data.
+ - `replace = nothing`: callback function with prototype
+   `replace(forest, treeid, outgoing, incoming)` called for each set of
+   `outgoing` quadrants with their associated `incoming` quadrant.  Note
+    both `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+
+See `@doc P4estTypes.P4est.p4est_coarsen_ext` and
+`@doc P4estTypes.P4est.p8est_coarsen_ext` for more information about
+the underlying p4est coarsening functions.
+"""
 function coarsen!(
     forest::Pxest{X};
     recursive = false,
@@ -522,6 +779,31 @@ end
     end
 end
 
+"""
+    refine!(forest; refine = (_...) -> false, kw...)
+
+Refine the quadrants of the forest determined by the `refine` callback.
+The `refine(forest, treeid, quadrant)` callback is called for each quadrant
+local to the rank. If the callback returns `true` the `quadrant` will
+refine into multiple quadrants otherwise it will be untouched.
+
+The other keyword arguments (`kw...`) for the refining are:
+ - `recursive`: if `true` refining will be recursive otherwise each
+   rank-local quadrant will only be visited once.
+ - `maxlevel = -1`: the maximum level of refinement possible during this
+   call.
+ - `init = nothing`: callback function with prototype
+   `init(forest, treeid, quadrant)` called for each quadrant created to
+   initialized the user data.
+ - `replace = nothing`: callback function with prototype
+   `replace(forest, treeid, outgoing, incoming)` called for each
+   `outgoing` quadrant with their associated `incoming` quadrants. Note both
+   `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+
+See `@doc P4estTypes.P4est.p4est_refine_ext` and
+`@doc P4estTypes.P4est.p8est_refine_ext` for more information about
+the underlying p4est refinement functions.
+"""
 function refine!(
     forest::Pxest{X};
     recursive = false,
@@ -548,6 +830,33 @@ function refine!(
     return
 end
 
+"""
+    balance!(forest; kw...)
+
+Enforce the two-to-one quadrant size constraint across the forest.  By default,
+this constraint is enforced across faces, edges, and corners.
+
+The keyword arguments (`kw...`) for the balancing are:
+ - `connect`: type of constraint enforced which can take the values:
+   - `P4estTypes.CONNECT_FULL(Val(4))`: enforce across face, and corner.
+   - `P4estTypes.CONNECT_FULL(Val(8))`: enforce across face, edge, and corner.
+   - `P4estTypes.CONNECT_FACE(Val(4))`: enforce across face.
+   - `P4estTypes.CONNECT_FACE(Val(8))`: enforce across face.
+   - `P4estTypes.CONNECT_EDGE(Val(8))`: enforce across face and edge.
+   - `P4estTypes.CONNECT_CORNER(Val(4))`: enforce across face and corner.
+   - `P4estTypes.CONNECT_CORNER(Val(8))`: enforce across face, edge, and corner.
+ - `init = nothing`: callback function with prototype
+   `init(forest, treeid, quadrant)` called for each quadrant created to
+   initialized the user data.
+ - `replace = nothing`: callback function with prototype
+   `replace(forest, treeid, outgoing, incoming)` called for each
+   `outgoing` quadrant with their associated `incoming` quadrants. Note both
+   `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+
+See `@doc P4estTypes.P4est.p4est_balance_ext` and
+`@doc P4estTypes.P4est.p8est_balance_ext` for more information about
+the underlying p4est balance functions.
+"""
 function balance!(
     forest::Pxest{X};
     connect = CONNECT_FULL(Val(X)),
@@ -591,6 +900,41 @@ end
     end
 end
 
+"""
+    partition!(forest; kw...)
+
+Partition the quadrants of the forest.  By default this will partition
+the quadrants equally across the ranks of the forest.
+
+By default sibling elements are split among the ranks.  This means they
+cannot be coarsened with `coarsen!` and can cause MPI dependent coarsening.
+If `allow_for_coarsening==true` then this is avoided by keeping sibling
+quadrants on the same rank.
+
+A `weight(forest, treeid, quadrant)` callback may provided (which gives the
+`Float64` weight of each quadrant) for a weighted partitioning of the forest.
+
+Alternatively, the forest may be partitioned to equally distribute the globally
+numbered nodes via [`LNodes`](@ref).  This is done by setting `lnodes_degree`
+to the node degree.  This requires the [`GhostLayer`](@ref) which if not
+passed in `ghost` will be created.
+
+The keyword arguments (`kw...`) for the partitioning are:
+ - `ghost = nothing`: [`GhostLayer`](@ref) used when partitioning by
+   [`LNodes`](@ref).
+ - `lnodes_degree = nothing`: partition based on [`LNodes`](@ref) if this is
+   set to the degree.
+ - `allow_for_coarsening = false`: if `true` sibling groups that may be
+   coarsened will be collect on the same rank.
+ - `weight = nothing`: callback that give the `Float64` weight of each quadrant
+   to perform a weighted partitioning.
+
+See `@doc P4estTypes.P4est.p4est_partition_ext`,
+`@doc P4estTypes.P4est.p8est_partition_ext`,
+`@doc P4estTypes.P4est.p4est_partition_lnodes`,
+and `@doc P4estTypes.P4est.p8est_partition_lnodes`, for more information about
+the underlying p4est partition functions.
+"""
 function partition!(
     forest::Pxest{X};
     ghost = nothing,
@@ -638,6 +982,26 @@ function Base.show(io::IO, q::Quadrant{X}) where {X}
     print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
 end
 
+"""
+    savevtk(prefix, forest; kw...)
+
+Save the distributed forest-of-octrees (or quadtrees) `forest` to a set of
+VTK files.
+
+A `.vtu` file with the file name `prefix` is created per rank storing the
+rank-local quadrants.  Further, `.pvtu` and `.visit` collection files
+are created for ease of importing the mesh into Paraview and Visit,
+respectively.
+
+The keyword arguments (`kw...`) are:
+ - `scale = 1.0`: a `scale < 1.0` places a visual gap between adjacent
+   quadrants.
+ - `writetree = true`: if `true` include the _zero-based_ tree id in VTK cell
+   data.
+ - `writelevel = true`: if `true` include the quadrant level in VTK cell data.
+ - `writerank = true`: if `true` include the MPI rank in VTK cell data.
+ - `wraprank = 0`: if `wraprank > 0` the MPI rank is stored modulo `wraprank`.
+"""
 function savevtk(
     prefix,
     forest::Pxest{X};

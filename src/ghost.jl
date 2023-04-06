@@ -1,4 +1,22 @@
+"""
+    GhostLayer{X,T,P}
+
+Stores a ghost layer of quadrants that neighbor the domain local to the rank
+for a `Pxest{X,T}`.  Also stores the corresponding local domain quadrants,
+mirrors, that are in other rank's ghost layers.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+
+# See also
+- [`ghostlayer`](@ref): a function used to construct a `GhostLayer`
+"""
 mutable struct GhostLayer{X,T,P}
+    """The pointer (of type `P`) can be a pointer to either a
+    `P4estTypes.P4est.p4est_ghost_t` or a
+    `P4estTypes.P4est.p8est_ghost_t`.  See the help
+    documentation for these types for more information about the
+    underlying p4est structures. """
     pointer::P
     function GhostLayer{4}(pointer::Ptr{p4est_ghost_t}, ::Type{T}) where {T}
         ghost = new{4,T,typeof(pointer)}(pointer)
@@ -18,6 +36,21 @@ mutable struct GhostLayer{X,T,P}
     end
 end
 
+"""
+    ghostlayer(forest::Pxest{X}; connection=P4estTypes.CONNECT_FULL(Val(X)))
+
+Construct a ghost layer of quadrants that neighbor the local to the rank
+for the given `forest`.  Here `connection` determines what neighboring
+quadrants to include (across face, edge, corner, or full) and can take the
+values:
+- `P4estTypes.CONNECT_FULL(Val(4))`: get face and corner neighbors.
+- `P4estTypes.CONNECT_FULL(Val(8))`: get face, edge, and corner neighbors.
+- `P4estTypes.CONNECT_FACE(Val(4))`: get face neighbors.
+- `P4estTypes.CONNECT_FACE(Val(8))`: get face neighbors.
+- `P4estTypes.CONNECT_EDGE(Val(8))`: get face and edge neighbors.
+- `P4estTypes.CONNECT_CORNER(Val(4))`: get face and corner neighbors.
+- `P4estTypes.CONNECT_CORNER(Val(8)): `get face, edge, and corner neighbors.
+"""
 function ghostlayer(forest::Pxest{X,T}; connection = CONNECT_FULL(Val(X))) where {X,T}
     return GhostLayer{X}((pxest_ghost_new(Val(X)))(forest, connection), T)
 end
@@ -54,11 +87,23 @@ Base.@propagate_inbounds function Base.getindex(m::Mirrors{X,T}, i::Int) where {
 end
 Base.IndexStyle(::Mirrors) = IndexLinear()
 
+"""
+    ghosts(gl::GhostLayer)
+
+Returns an array-like structure with the [`Quadrant`](@ref)s that neighbor the
+domain of the local rank.
+"""
 function ghosts(gl::GhostLayer{X,T}) where {X,T}
     gs = unsafe_load(gl.pointer).ghosts
     return Ghosts{X,T,typeof(gs),typeof(gl.pointer)}(gs, gl)
 end
 
+"""
+    mirrors(gl::GhostLayer)
+
+Returns an array-like structure with the [`Quadrant`](@ref)s in the local
+domain that are in neighboring rank's ghost layers.
+"""
 function mirrors(gl::GhostLayer{X,T}) where {X,T}
     ms = unsafe_load(gl.pointer).mirrors
     return Mirrors{X,T,typeof(ms),typeof(gl.pointer)}(ms, gl)

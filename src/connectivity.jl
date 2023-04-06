@@ -1,4 +1,125 @@
+"""
+    Connectivity{X,P}
+
+Connectivity for a `Pxest` which holds the mesh information for
+the roots of `Pxest` quadtrees or octrees. The parameter `X` is 4 if the
+roots are quads (2D aka p4est) and 8 if they are hexes (3D aka p8est).
+
+# Fields
+$(DocStringExtensions.FIELDS)
+
+# Usage
+
+    Connectivity{4}(name::Symbol)
+
+Construct a connectivity mesh for the roots of a forest-of-quadtrees using
+p4est's built-in mesh connectivities.  Valid values for `name` are
+
+- `:unitsquare`: the unit square.
+- `:periodic`: all-periodic unit square.
+- `:rotwrap`: periodic unit square (the left and right faces are identified,
+  and bottom and top opposite).
+- `:corner`: three-tree mesh around a corner.
+- `:pillow`: two trees on top of each other.
+- `:moebius`: a five-tree moebius band.
+- `:star`: six-tree star.
+- `:cubed`: six sides of a unit cube.
+- `:disk_nonperiodic`: five-tree flat spherical disk.
+- `:icosahedron`: for mapping the sphere using an icosahedron (see
+  `@doc P4estTypes.P4est.p4est_connectivity_new_icosahedron` for more info).
+- `:shell2d`: 2D spherical shell.
+- `:disk2d`: maps a 2D disk.
+
+
+---
+    Connectivity{4}(:disk, periodic_x::Bool, periodic_y::Bool)
+
+Create a connectivity structure for a five-tree flat spherical disk.  The
+arguments `periodic_x` and `periodic_y` determine if the disk is periodic in
+the x and y directions, respectively.
+
+See `@doc P4estTypes.P4est.p4est_connectivity_new_disk` for detailed information.
+
+---
+    Connectivity{8}(name::Symbol)
+
+Construct a connectivity mesh for the roots of a forest-of-octrees using
+p8est's built-in mesh connectivities.  Valid values for `name` are
+
+- `:unitcube`: the unit cube.
+- `:periodic`: an all-periodic unit cube.
+- `:rotcubes`: contains a few cubes (these are rotated against each other to
+  stress the topology routines).
+- `:rotwrap`: a mostly periodic unit cube (see
+  `@doc P4estTypes.P4est.p8est_connectivity_new_rotwrap`).
+- `:shell`: a spherical shell (see
+  `@doc P4estTypes.P4est.p8est_connectivity_new_shell`).
+- `:sphere`: a solid sphere (see
+  `@doc P4estTypes.P4est.p8est_connectivity_new_sphere`).
+- `:twocubes`: two cubes.
+- `:twowrap`: two cubes where the two far ends are identified periodically.
+
+---
+    Connectivity{8}(:torus, nsegments)
+
+Create a connectivity structure that builds a revolution torus.  Here
+`nsegments` are the number of trees along the great circle.
+
+See `@doc P4estTypes.P4est.p8est_connectivity_new_torus` for detailed
+information.
+
+---
+    Connectivity{8}(:torus, nsegments)
+
+Create a connectivity structure that builds a revolution torus.  Here
+`nsegments` are the number of trees along the great circle.
+
+See `@doc P4estTypes.P4est.p8est_connectivity_new_torus` for detailed
+information.
+
+---
+    Connectivity{X}(:twotrees, l_face, r_face, orientation) where {X}
+
+Create a connectivity structure (`X=4` for quadtrees and `X=8` for octrees) for
+two trees being rotated with respect to each other in a user-defined way.  Here
+`l_face` and `r_face` are the 0-based indices of left and right faces,
+respectively. The argument `orientation` gives the orientation code of the
+trees with respect to each other.
+
+---
+    Connectivity{X}(vertices, elements) where {X}
+
+Creates a connectivity from the given list of vertices and element-to-vertex
+connectivity.  The parameter set to `X=4` is for quads and `X=8` for hexes.
+
+- `vertices`: should be a number-of-vertices by 3 matrix where the columns
+  correspond to x, y, and z coordinates (typically the `z` coordinate will be
+  zero for a 2D forest).
+- `elements`: should be a number-of-vertices by 4 or 8 matrix where the columns
+  vertex indices used to define each element. Note that z-ordering should be
+  used, and it should use zero-indexing.
+
+---
+    Connectivity{X}(filename::String) where {X}
+
+Create a connectivity from an ABAQUS input at `filename`. The parameter set to
+`X=4` is for quads and `X=8` for hexes.
+
+See `@doc P4estTypes.P4est.p4est_connectivity_read_inp` and
+`@doc P4estTypes.P4est.p8est_connectivity_read_inp` for example ABAQUS input
+files.
+
+# See also
+- [`brick`](@ref): a function to create a rectangular [`Connectivity`](@ref).
+- [`connectivity`](@ref): a function to get the connectivity of a [`Pxest`](@ref).
+- [`refine`](@ref): a function to create a refined [`Connectivity`](@ref).
+"""
 mutable struct Connectivity{X,P}
+    """The pointer (of type `P`) can be a pointer to either a
+    `P4estTypes.P4est.p4est_connectivity` or a
+    `P4estTypes.P4est.p8est_connectivity`.  See the help
+    documentation for these types for more information about the underlying
+    p4est structures. """
     pointer::P
     function Connectivity{4}(pointer::Ptr{P4est.LibP4est.p4est_connectivity})
         connectivity = new{4,typeof(pointer)}(pointer)
@@ -80,11 +201,6 @@ function Connectivity{8}(name::Symbol, args...)
     return Connectivity{8}(pointer)
 end
 
-# creates a coarse P4est connectivity from a list of vertices and element-to-vertex connectivity
-# - VXYZ should be a [num_vertices, 3] matrix where the columns correspond to x, y, and z coordinates
-#   (the `z` coordinate should be zero for a 2D forest)
-# - EToV should be a [num_vertices, 4 or 8] matrix where the columns vertex indices used to define
-#   each element. Note that z-ordering should be used, and it should use zero-indexing
 function Connectivity{X}(VXYZ, EToV) where {X}
     num_vertices = size(VXYZ, 1)
     num_elements = size(EToV, 1)
@@ -97,7 +213,7 @@ function Connectivity{X}(VXYZ, EToV) where {X}
     for i in eachindex(trees, tree_to_tree, tree_to_face)
         trees[i] = Tuple(EToV[i, :])
         tree_to_tree[i] = ntuple(_ -> (i - 1), 4)
-        tree_to_face[i] = ntuple(i -> (i - 1), 4) # connectivity - this is important for using `complete!(conn)`
+        tree_to_face[i] = ntuple(i -> (i - 1), 4) # important for `complete!(conn)`
     end
 
     for i in eachindex(vertices)
@@ -215,9 +331,22 @@ function unsafe_corner_to_tree(c::Connectivity{X}) where {X}
     return s
 end
 
+"""
+    refine(c::Connectivity{4}, nedge)
+
+Returns a new [`Connectivity`](@ref) that is `c` uniformly refined with `nedge`
+new trees in each direction.
+"""
 function refine(c::Connectivity{4}, nedge)
     return Connectivity{4}(p4est_connectivity_refine(c.pointer, nedge))
 end
+
+"""
+    refine(c::Connectivity{8}, nedge)
+
+Returns a new [`Connectivity`](@ref) that is `c` uniformly refined with `nedge`
+new trees in each direction.
+"""
 function refine(c::Connectivity{8}, nedge)
     return Connectivity{8}(p8est_connectivity_refine(c.pointer, nedge))
 end
@@ -228,16 +357,46 @@ reduce!(c::Connectivity{8}) = p8est_connectivity_reduce(c.pointer)
 complete!(c::Connectivity{4}) = p4est_connectivity_complete(c.pointer)
 complete!(c::Connectivity{8}) = p8est_connectivity_complete(c.pointer)
 
+"""
+    brick(n::NTuple{2, Integer}, p::NTuple{2, Bool}=(false, false))
+
+Returns a new [`Connectivity`](@ref) that is a rectangular `n[1]`-by-`n[2]`
+quadtree connectivity.  The brick is periodic in x and y if `p[1]` and `p[2]`
+are `true`, respectively.
+"""
 function brick(n::Tuple{Integer,Integer}, p::Tuple{Bool,Bool} = (false, false))
     return Connectivity{4}(p4est_connectivity_new_brick(n..., p...))
 end
+
+"""
+    brick(n::NTuple{3, Integer}, p::NTuple{3, Bool}=(false, false, false))
+
+Returns a new [`Connectivity`](@ref) that is a rectangular
+`n[1]`-by-`n[2]`-by-`n[3]` octree mesh.  The brick is periodic in x, y, and z
+if `p[1]`, `p[2]`, and `p[3]` are `true`, respectively.
+"""
 function brick(
     n::Tuple{Integer,Integer,Integer},
     p::Tuple{Bool,Bool,Bool} = (false, false, false),
 )
     return Connectivity{8}(p8est_connectivity_new_brick(n..., p...))
 end
+
+"""
+    brick(l, m, p=false, q=false)
+
+Returns a new [`Connectivity`](@ref) that is a rectangular `l`-by-`m` quadtree
+mesh.  The brick is periodic in x and y if `p` and `q` are `true`, respectively.
+"""
 brick(l::Integer, m::Integer, p::Bool = false, q::Bool = false) = brick((l, m), (p, q))
+
+"""
+    brick(l, m, n, p=false, q=false, r=false)
+
+Returns a new [`Connectivity`](@ref) that is a rectangular `l`-by-`m`-by-`n`
+octree mesh.  The brick is periodic in x, y, and z if `p`, `q`, and `r` are
+`true`, respectively.
+"""
 function brick(
     l::Integer,
     m::Integer,
