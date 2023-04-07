@@ -161,7 +161,7 @@ end
 @inline CONNECT_FACE(::Val{8}) = P8EST_CONNECT_FACE
 @inline CONNECT_CORNER(::Val{4}) = P4EST_CONNECT_CORNER
 @inline CONNECT_CORNER(::Val{8}) = P8EST_CONNECT_CORNER
-@inline CONNECT_EDGE(::Val{8}) = P8EST_CONNECT_CORNER
+@inline CONNECT_EDGE(::Val{8}) = P8EST_CONNECT_EDGE
 
 const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
