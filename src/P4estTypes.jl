@@ -1,6 +1,7 @@
 module P4estTypes
 
 using AbstractTrees: print_tree
+using DocStringExtensions
 using MPI
 using P4est
 using RecipesBase
