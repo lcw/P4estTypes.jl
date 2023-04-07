@@ -22,9 +22,9 @@ let
 
     for b in (brick((4, 3)), brick((2, 3, 1)))
         @test sizeof(b) > 0
-        reduce!(b)
+        P4estTypes.reduce!(b)
         @test isvalid(b)
-        complete!(b)
+        P4estTypes.complete!(b)
         @test isvalid(b)
     end
 end

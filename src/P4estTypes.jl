@@ -8,9 +8,8 @@ using RecipesBase
 using SparseArrays
 
 export Quadrant, Connectivity, Pxest, GhostLayer, LNodes
-export Locidx, Gloidx
 
-export refine, reduce!, complete!, brick, pxest
+export refine, brick, pxest
 export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
 export level, storeuserdata!, loaduserdata
 export offset, coordinates
