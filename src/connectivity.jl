@@ -108,6 +108,9 @@ function Connectivity{X}(VXYZ, EToV) where {X}
     return conn
 end
 
+Connectivity{4}(name::String) = Connectivity{4}(p4est_connectivity_read_inp(name))
+Connectivity{8}(name::String) = Connectivity{8}(p8est_connectivity_read_inp(name))
+
 function Base.unsafe_convert(
     ::Type{Ptr{p4est_connectivity}},
     c::Connectivity{4,Ptr{p4est_connectivity}},
@@ -127,9 +130,6 @@ end
 function Base.:(==)(x::Connectivity{8}, y::Connectivity{8})
     p8est_connectivity_is_equivalent(x.pointer, y.pointer) == 1
 end
-
-Connectivity{4}(name::String) = Connectivity{4}(p4est_connectivity_read_inp(name))
-Connectivity{8}(name::String) = Connectivity{8}(p8est_connectivity_read_inp(name))
 
 Base.isvalid(c::Connectivity{4}) = p4est_connectivity_is_valid(c.pointer) == 1
 Base.sizeof(c::Connectivity{4}) = Int(p4est_connectivity_memory_used(c.pointer))
