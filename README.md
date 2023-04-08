@@ -32,7 +32,7 @@ on 5 MPI ranks is visualized below (using [a paraview
 script](docs/src/figures/readme/forest_2d.py) to generate a PNG file from the
 VTK files).
 
-![Alt text](docs/src/figures/readme/forest_2d.png?raw=true "Forest-of-quadtrees")
+![Forest-of-quadtrees](docs/src/figures/readme/forest_2d.png?raw=true)
 
 
 Similarly, the following code generates a 3-by-2-by-4 rectilinear forest-of-octrees.
@@ -48,7 +48,7 @@ balance!(forest)
 partition!(forest)
 ```
 
-![Alt text](docs/src/figures/readme/forest_3d.png?raw=true "Forest-of-octrees")
+![Forest-of-octrees](docs/src/figures/readme/forest_3d.png?raw=true)
 
 Please see the [documentation](https://lcw.github.io/P4estTypes.jl/dev/)
 for more detailed instructions on using the package.
