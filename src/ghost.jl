@@ -56,32 +56,32 @@ function ghostlayer(forest::Pxest{X,T}; connection = CONNECT_FULL(Val(X))) where
 end
 
 struct Ghosts{X,T,P,Q} <: AbstractArray{Quadrant,1}
-    array::P
+    pointer::P
     ghostlayer::GhostLayer{X,T,Q}
 end
 
-Base.size(g::Ghosts) = (g.array.elem_count,)
+Base.size(g::Ghosts) = (PointerWrapper(g.pointer).elem_count[],)
 Base.@propagate_inbounds function Base.getindex(g::Ghosts{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(g, i)
     GC.@preserve g begin
         Q = pxest_quadrant_t(Val(X))
-        quadrant = Ptr{Q}(g.array + sizeof(Q) * (i - 1))
+        quadrant = Ptr{Q}(pointer(PointerWrapper(g.pointer).array) + sizeof(Q) * (i - 1))
         return Quadrant{X,T,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Ghosts) = IndexLinear()
 
 struct Mirrors{X,T,P,Q} <: AbstractArray{Quadrant,1}
-    array::P
+    pointer::P
     ghostlayer::GhostLayer{X,T,Q}
 end
 
-Base.size(m::Mirrors) = (m.array.elem_count,)
+Base.size(m::Mirrors) = (PointerWrapper(m.pointer).elem_count[],)
 Base.@propagate_inbounds function Base.getindex(m::Mirrors{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(m, i)
     GC.@preserve m begin
         Q = pxest_quadrant_t(Val(X))
-        quadrant = Ptr{Q}(m.array + sizeof(Q) * (i - 1))
+        quadrant = Ptr{Q}(pointer(PointerWrapper(m.pointer).array) + sizeof(Q) * (i - 1))
         return Quadrant{X,T,Ptr{Q}}(quadrant)
     end
 end
@@ -94,7 +94,7 @@ Returns an array-like structure with the [`Quadrant`](@ref)s that neighbor the
 domain of the local rank.
 """
 function ghosts(gl::GhostLayer{X,T}) where {X,T}
-    gs = unsafe_load(gl.pointer).ghosts
+    gs = pointer(PointerWrapper(gl.pointer).ghosts)
     return Ghosts{X,T,typeof(gs),typeof(gl.pointer)}(gs, gl)
 end
 
@@ -105,7 +105,7 @@ Returns an array-like structure with the [`Quadrant`](@ref)s in the local
 domain that are in neighboring rank's ghost layers.
 """
 function mirrors(gl::GhostLayer{X,T}) where {X,T}
-    ms = unsafe_load(gl.pointer).mirrors
+    ms = pointer(PointerWrapper(gl.pointer).mirrors)
     return Mirrors{X,T,typeof(ms),typeof(gl.pointer)}(ms, gl)
 end
 
