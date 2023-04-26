@@ -56,9 +56,9 @@ function __init__()
     initialize()
 end
 
-using SnoopPrecompile
-@precompile_setup begin
-    @precompile_all_calls begin
+using PrecompileTools
+@setup_workload begin
+    @compile_workload begin
         MPI.Initialized() || MPI.Init()
         initialize()
         p = pxest(brick(3, 4))
