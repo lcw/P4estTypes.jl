@@ -229,7 +229,7 @@ Returns the level of refinement for the quadrant.  Level 0 is the coarsest
 level and `P4estTypes.P4est.P4EST_QMAXLEVEL` is the maximum refinement level.
 """
 @inline level(quadrant::Quadrant) =
-    GC.@preserve quadrant unsafe_load(quadrant.pointer).level
+    GC.@preserve quadrant PointerWrapper(quadrant.pointer).level[]
 
 """
     coordinates(quadrant::Quadrant{4})
@@ -238,8 +238,8 @@ Returns a tuple of the quadrant's integer coordinates inside its tree.
 """
 @inline function coordinates(quadrant::Quadrant{4})
     GC.@preserve quadrant begin
-        qs = unsafe_load(quadrant.pointer)
-        return (qs.x, qs.y)
+        qs = PointerWrapper(quadrant.pointer)
+        return (qs.x[], qs.y[])
     end
 end
 
@@ -250,7 +250,8 @@ Returns the `which_tree` field of the underlying quadrant.  This value is only
 sometimes set so the function is marked unsafe.
 """
 @inline function unsafe_which_tree(quadrant::Quadrant)
-    return GC.@preserve quadrant unsafe_load(quadrant.pointer).p.piggy3.which_tree + 0x1
+    return GC.@preserve quadrant PointerWrapper(quadrant.pointer).p.piggy3.which_tree[] +
+                                 0x1
 end
 
 """
@@ -260,8 +261,8 @@ Returns a tuple of the quadrant's integer coordinates inside its tree.
 """
 @inline function coordinates(quadrant::Quadrant{8})
     GC.@preserve quadrant begin
-        qs = unsafe_load(quadrant.pointer)
-        return (qs.x, qs.y, qs.z)
+        qs = PointerWrapper(quadrant.pointer)
+        return (qs.x[], qs.y[], qs.z[])
     end
 end
 
@@ -272,8 +273,8 @@ Store the user data `data` associated with the `quadrant`.
 """
 function storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T}
     GC.@preserve quadrant begin
-        qs = unsafe_load(quadrant.pointer)
-        unsafe_store!(Ptr{T}(qs.p.user_data), data)
+        qs = PointerWrapper(quadrant.pointer)
+        unsafe_store!(Ptr{T}(qs.p.user_data[]), data)
     end
 end
 
@@ -284,7 +285,7 @@ Return the user data `data` associated with the `quadrant`.
 """
 function loaduserdata(quadrant::Quadrant{X,T}) where {X,T}
     GC.@preserve quadrant begin
-        unsafe_load(Ptr{T}(unsafe_load(quadrant.pointer).p.user_data))
+        unsafe_load(Ptr{T}(PointerWrapper(quadrant.pointer).p.user_data[]))
     end
 end
 
@@ -310,12 +311,13 @@ struct Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
 end
 
 Base.size(t::Tree) =
-    (convert(Int, (GC.@preserve t unsafe_load(t.pointer).quadrants.elem_count)),)
+    (convert(Int, (GC.@preserve t PointerWrapper(t.pointer).quadrants.elem_count[])),)
 function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
     @boundscheck checkbounds(t, i)
     GC.@preserve t begin
         Q = pxest_quadrant_t(Val(X))
-        quadrant = Ptr{Q}(unsafe_load(t.pointer).quadrants.array + sizeof(Q) * (i - 1))
+        quadrant =
+            Ptr{Q}(pointer(PointerWrapper(t.pointer).quadrants.array) + sizeof(Q) * (i - 1))
         return Quadrant{X,T,Ptr{Q}}(quadrant)
     end
 end
@@ -327,7 +329,7 @@ Base.IndexStyle(::Tree) = IndexLinear()
 The cumulative sum of the quadrants over earlier trees on this rank (locals
 only).
 """
-offset(tree::Tree) = GC.@preserve tree unsafe_load(tree.pointer).quadrants_offset
+offset(tree::Tree) = GC.@preserve tree PointerWrapper(tree.pointer).quadrants_offset[]
 
 """
     Pxest{X,T,P,C} <: AbstractArray{P4estTypes.Tree,1}
@@ -396,17 +398,6 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
             return
         end
     end
-end
-
-function unsafe_get_user_pointer_pointer(forest::Pxest{X,T,P}) where {X,T,P}
-    return unsafe_get_user_pointer_pointer(forest.pointer)
-end
-
-function unsafe_get_user_pointer_pointer(ptr::Ptr{F}) where {F<:Union{p4est_t,p8est_t}}
-    i = findfirst(isequal(:user_pointer), fieldnames(F))
-    offset = fieldoffset(F, i)
-    ptrtype = Ptr{fieldtype(F, i)}
-    return reinterpret(ptrtype, ptr + offset)
 end
 
 """
@@ -537,18 +528,17 @@ end
 Base.IndexStyle(::Pxest) = IndexLinear()
 
 function iterate_volume_callback(info, _)
-    info = unsafe_load(info)
-    data =
-        unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(info.p4est)))[]
+    info = PointerWrapper(info)
+    data = unsafe_pointer_to_objref(pointer(info.p4est.user_pointer))[]
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
-    quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(info.quad)
+    quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(pointer(info.quad))
     data.volume(
         data.forest,
         data.ghost,
         quadrant,
-        info.quadid + 1,
-        info.treeid + 1,
+        info.quadid[] + 1,
+        info.treeid[] + 1,
         data.userdata,
     )
     return
@@ -607,8 +597,7 @@ function iterateforest(
     end
 
     GC.@preserve data begin
-        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
-        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
+        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
         if X == 4
             p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
@@ -618,14 +607,14 @@ function iterateforest(
             error("Not implemented")
         end
 
-        unsafe_store!(user_pointer_pointer, C_NULL)
+        PointerWrapper(forest.pointer).user_pointer = C_NULL
     end
 
     return
 end
 
 function init_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
+    data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -648,7 +637,7 @@ end
 end
 
 function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, incoming)
-    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
+    data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -679,7 +668,7 @@ end
 end
 
 function coarsen_callback(forest, treeid, children)
-    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
+    data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -741,8 +730,7 @@ function coarsen!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
-        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
+        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
         (pxest_coarsen_ext(Val(X)))(
             forest,
@@ -753,14 +741,14 @@ function coarsen!(
             replace,
         )
 
-        unsafe_store!(user_pointer_pointer, C_NULL)
+        PointerWrapper(forest.pointer).user_pointer = C_NULL
     end
 
     return
 end
 
 function refine_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
+    data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -819,12 +807,11 @@ function refine!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
-        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
+        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
         (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
 
-        unsafe_store!(user_pointer_pointer, C_NULL)
+        PointerWrapper(forest.pointer).user_pointer = C_NULL
     end
 
     return
@@ -869,19 +856,18 @@ function balance!(
     replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
     GC.@preserve data begin
-        user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
-        unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
+        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
         (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
 
-        unsafe_store!(user_pointer_pointer, C_NULL)
+        PointerWrapper(forest.pointer).user_pointer = C_NULL
     end
 
     return
 end
 
 function weight_callback(forest, treeid, quadrant)
-    data = unsafe_pointer_to_objref(unsafe_load(unsafe_get_user_pointer_pointer(forest)))[]
+    data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
     T = typeofquadrantuserdata(data.forest)
@@ -953,12 +939,11 @@ function partition!(
         weight::Ptr{Cvoid} = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
 
         GC.@preserve data begin
-            user_pointer_pointer = unsafe_get_user_pointer_pointer(forest)
-            unsafe_store!(user_pointer_pointer, pointer_from_objref(data))
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
             (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
 
-            unsafe_store!(user_pointer_pointer, C_NULL)
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
         end
     end
 
