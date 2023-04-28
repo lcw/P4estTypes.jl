@@ -111,14 +111,14 @@ Base.convert(::Type{Cint}, ::Statistics) = Cint(SC_LP_STATISTICS)
 Base.convert(::Type{Cint}, ::Trace) = Cint(SC_LP_TRACE)
 Base.convert(::Type{Cint}, ::Verbose) = Cint(SC_LP_VERBOSE)
 
-struct SCArray{T} <: AbstractArray{T,1}
-    pointer::Ptr{sc_array}
-end
-Base.IndexStyle(::SCArray) = IndexLinear()
-function Base.getindex(a::SCArray{T}, i::Int) where {T}
-    return GC.@preserve a unsafe_load(T(unsafe_load(a.pointer).array), i)
-end
-Base.size(a::SCArray) = GC.@preserve a (unsafe_load(a.pointer).elem_count,)
+# struct SCArray{T} <: AbstractArray{T,1}
+#     pointer::Ptr{sc_array}
+# end
+# Base.IndexStyle(::SCArray) = IndexLinear()
+# function Base.getindex(a::SCArray{T}, i::Int) where {T}
+#     return GC.@preserve a unsafe_load(T(unsafe_load(a.pointer).array), i)
+# end
+# Base.size(a::SCArray) = GC.@preserve a (unsafe_load(a.pointer).elem_count,)
 
 end # module
 
