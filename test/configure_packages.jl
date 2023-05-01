@@ -4,6 +4,11 @@ Pkg.add("MPIPreferences")
 Pkg.add("Preferences")
 Pkg.add("UUIDs")
 
+@static if VERSION >= v"1.8"
+    Pkg.compat("MPIPreferences", "0.1")
+    Pkg.compat("Preferences", "1")
+end
+
 const P4ESTTYPES_TEST = get(ENV, "P4ESTTYPES_TEST", "P4ESTTYPES_JLL_MPI_DEFAULT")
 const P4ESTTYPES_TEST_LIBP4EST = get(ENV, "P4ESTTYPES_TEST_LIBP4EST", "")
 const P4ESTTYPES_TEST_LIBSC = get(ENV, "P4ESTTYPES_TEST_LIBSC", "")

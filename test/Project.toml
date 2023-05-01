@@ -1,4 +1,5 @@
 [deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 MPIPreferences = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
 P4est = "7d669430-f675-4ae7-b43e-fab78ec5a902"
@@ -8,6 +9,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
+Aqua = "0.6"
 MPI = "0.20,0.19"
 MPIPreferences = "0.1"
 P4est = "0.4.4"
