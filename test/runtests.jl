@@ -1,8 +1,11 @@
+using Aqua
 using MPI
 using MPIPreferences
 using P4estTypes
 using Pkg
 using Test
+
+Aqua.test_all(P4estTypes)
 
 nprocs_str = get(ENV, "P4ESTTYPES_TEST_NPROCS", "")
 nprocs = nprocs_str == "" ? clamp(Sys.CPU_THREADS, 2, 4) : parse(Int, nprocs_str)
