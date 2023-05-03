@@ -201,6 +201,8 @@ let
                 end
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
+
+            @test sharers(nodes) == Dict{Int32,Set{Int64}}(1 => Set([13, 6, 7, 8, 14]))
         end
 
         if tworank == 1
@@ -238,6 +240,8 @@ let
                 end
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
+
+            @test sharers(nodes) == Dict{Int32,Set{Int64}}(0 => Set([13, 6, 7, 8, 14]))
         end
     end
 end

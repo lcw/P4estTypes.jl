@@ -160,3 +160,36 @@ function unsafe_face_code(nodes::LNodes)
 
     return element_nodes
 end
+
+"""
+    sharers(nodes::LNodes)
+
+Returns a `Dict` mapping the neighboring rank with the global ids of the
+nodes shared between it and the local rank.
+
+Note, this `Dict` does not include an entry for the local rank.
+"""
+function sharers(nodes::LNodes)
+    d = Dict{Cint,Set{p4est_gloidx_t}}()
+    rank = MPI.Comm_rank(nodes.comm)
+
+    pn = PointerWrapper(nodes.pointer)
+    sa = PointerWrapper(Ptr{p4est_lnodes_rank}(pointer(pn.sharers.array)))
+    for n = 1:pn.sharers.elem_count[]
+        if sa[n].rank == rank
+            continue
+        end
+
+        s = get!(d, sa[n].rank[]) do
+            Set{p4est_gloidx_t}()
+        end
+
+        for m = 1:sa[n].shared_nodes.elem_count
+            lid = unsafe_load(Ptr{p4est_locidx_t}(sa[n].shared_nodes.array), m)
+            gid = globalid(nodes, lid)
+            push!(s, gid)
+        end
+    end
+
+    return d
+end
