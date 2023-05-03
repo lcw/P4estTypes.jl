@@ -122,3 +122,81 @@ function Base.unsafe_convert(
 ) where {T}
     return p.pointer
 end
+
+"""
+    unsafe_mirror_proc_offsets(ghost::GhostLayer)
+
+Returns 0-based indices into `mirror_proc_mirrors` for each rank.  This includes
+an extra entry at the end of the array so that 1-based range into
+`mirror_proc_mirrors` for rank `r` can be built with
+```
+(mirror_proc_offsets[r]+1):mirror_proc_offsets[r+1]
+```
+
+See `@doc P4estTypes.P4est.p4est_ghost_t` and
+`@doc P4estTypes.P4est.p8est_ghost_t` for a more details.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `ghost`
+structure is preserved while using the return value.
+"""
+function unsafe_mirror_proc_offsets(ghost::GhostLayer{X}) where {X}
+    gp = PointerWrapper(ghost.pointer)
+    ptr = pointer(gp.mirror_proc_offsets)
+    sz = (Int(gp.mpisize[] + 1),)
+    mirror_proc_offsets = unsafe_wrap(Vector{eltype(ptr)}, ptr, sz, own = false)
+    return mirror_proc_offsets
+end
+
+"""
+    unsafe_proc_offsets(ghost::GhostLayer)
+
+Returns 0-based indices into [`ghosts`](@ref) for each rank.  This includes
+an extra entry at the end of the array so that 1-based range into
+[`ghosts`](@ref) for rank `r` can be built with
+```
+(proc_offsets[r]+1):proc_offsets[r+1]
+```
+Thus the ghost quadrants associated with rank `r` can be obtained with
+```
+ghosts(ghost)[(proc_offsets[r]+1):proc_offsets[r+1]]
+```
+
+See `@doc P4estTypes.P4est.p4est_ghost_t` and
+`@doc P4estTypes.P4est.p8est_ghost_t` for a more details.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `ghost`
+structure is preserved while using the return value.
+"""
+function unsafe_proc_offsets(ghost::GhostLayer{X}) where {X}
+    gp = PointerWrapper(ghost.pointer)
+    ptr = pointer(gp.proc_offsets)
+    sz = (Int(gp.mpisize[] + 1),)
+    proc_offsets = unsafe_wrap(Vector{eltype(ptr)}, ptr, sz, own = false)
+    return proc_offsets
+end
+
+"""
+    unsafe_mirror_proc_mirrors(ghost::GhostLayer)
+
+Returns 0-based indices into [`mirrors`](@ref).  This is used in conjunction
+with `mirror_proc_offsets` to get the mirror quadrants associated with
+each rank.  For example
+```
+rrange = (mirror_proc_offsets[r]+1):mirror_proc_offsets[r+1]
+mirrors(ghost)[mirror_proc_mirrors(rrange)]
+```
+selects the mirror quadrants associated with rank `r`.
+
+See `@doc P4estTypes.P4est.p4est_ghost_t` and
+`@doc P4estTypes.P4est.p8est_ghost_t` for a more details.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `ghost`
+structure is preserved while using the return value.
+"""
+function unsafe_mirror_proc_mirrors(ghost::GhostLayer{X}) where {X}
+    gp = PointerWrapper(ghost.pointer)
+    ptr = pointer(gp.mirror_proc_mirrors)
+    sz = (Int(gp.mirror_proc_offsets[gp.mpisize[]+1]),)
+    mirror_proc_mirrors = unsafe_wrap(Vector{eltype(ptr)}, ptr, sz, own = false)
+    return mirror_proc_mirrors
+end
