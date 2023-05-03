@@ -186,7 +186,10 @@ let
             @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2, 3]
             @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2]
 
-            GC.@preserve forest begin
+            GC.@preserve forest ghost begin
+                @test P4estTypes.unsafe_mirror_proc_offsets(ghost) == Int32[0, 0, 2]
+                @test P4estTypes.unsafe_proc_offsets(ghost) == Int32[0, 0, 3]
+                @test P4estTypes.unsafe_mirror_proc_mirrors(ghost) == Int32[0, 1]
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
         end
@@ -201,7 +204,10 @@ let
             @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2]
             @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2, 3]
 
-            GC.@preserve forest begin
+            GC.@preserve forest ghost begin
+                @test P4estTypes.unsafe_mirror_proc_offsets(ghost) == Int32[0, 3, 3]
+                @test P4estTypes.unsafe_proc_offsets(ghost) == Int32[0, 2, 2]
+                @test P4estTypes.unsafe_mirror_proc_mirrors(ghost) == Int32[0, 1, 2]
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
         end
