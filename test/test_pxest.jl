@@ -243,6 +243,30 @@ let
 
             @test sharers(nodes) == Dict{Int32,Set{Int64}}(0 => Set([13, 6, 7, 8, 14]))
         end
+
+        expand!(ghost, forest, nodes)
+        gs = ghosts(ghost)
+        ms = mirrors(ghost)
+
+        if tworank == 0
+            @test length(gs) == 4
+            @test length(ms) == 2
+            @test P4estTypes.coordinates.(gs) ==
+                  Tuple{Int32,Int32}[(0, 0), (0, 0), (536870912, 0), (0, 536870912)]
+            @test P4estTypes.coordinates.(ms) == Tuple{Int32,Int32}[(0, 0), (0, 0)]
+            @test P4estTypes.unsafe_which_tree.(gs) == Int32[3, 4, 4, 4]
+            @test P4estTypes.unsafe_which_tree.(ms) == Int32[1, 2]
+        end
+
+        if tworank == 1
+            @test length(gs) == 2
+            @test length(ms) == 4
+            @test P4estTypes.coordinates.(gs) == Tuple{Int32,Int32}[(0, 0), (0, 0)]
+            @test P4estTypes.coordinates.(ms) ==
+                  Tuple{Int32,Int32}[(0, 0), (0, 0), (536870912, 0), (0, 536870912)]
+            @test P4estTypes.unsafe_which_tree.(gs) == Int32[1, 2]
+            @test P4estTypes.unsafe_which_tree.(ms) == Int32[3, 4, 4, 4]
+        end
     end
 end
 

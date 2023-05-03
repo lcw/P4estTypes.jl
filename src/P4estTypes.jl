@@ -14,7 +14,7 @@ export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
 export level, storeuserdata!, loaduserdata
 export offset, coordinates
 export iterateforest
-export refine!, coarsen!, balance!, partition!
+export refine!, coarsen!, balance!, partition!, expand!
 export lnodes, ghostlayer, connectivity
 export ghosts, mirrors, sharers
 export globalid
