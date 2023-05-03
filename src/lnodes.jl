@@ -65,3 +65,85 @@ end
 function Base.unsafe_convert(::Type{Ptr{p8est_lnodes}}, p::LNodes{8,Ptr{p8est_lnodes}})
     return p.pointer
 end
+
+"""
+    unsafe_global_owned_count(nodes::LNodes)
+
+Return an array containing the number of independent nodes owned by each
+rank.
+
+See `@doc P4estTypes.P4est.p4est_lnodes_t` and
+`@doc P4estTypes.P4est.p8est_lnodes_t` for a more details.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `nodes`
+structure is preserved while using the return value.
+"""
+function unsafe_global_owned_count(nodes::LNodes)
+    ns = PointerWrapper(nodes.pointer)
+    mpisize = MPI.Comm_size(nodes.comm)
+
+    global_owned_count = unsafe_wrap(
+        Vector{p4est_locidx_t},
+        pointer(ns.global_owned_count),
+        (mpisize,),
+        own = false,
+    )
+
+    return global_owned_count
+end
+
+"""
+    unsafe_element_nodes(nodes::LNodes)
+
+Return an array containing the unique continuous node number for each
+local degree-of-freedom.
+
+See `@doc P4estTypes.P4est.p4est_lnodes_t` and
+`@doc P4estTypes.P4est.p8est_lnodes_t` for a more details.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `nodes`
+structure is preserved while using the return value.
+"""
+function unsafe_element_nodes(nodes::LNodes{X}) where {X}
+    ns = PointerWrapper(nodes.pointer)
+
+    element_nodes = unsafe_wrap(
+        Matrix{p4est_locidx_t},
+        pointer(ns.element_nodes),
+        (ns.vnodes[], ns.num_local_elements[]),
+        own = false,
+    )
+
+    if X == 4
+        D = 2
+    elseif X == 8
+        D = 3
+    else
+        error("Not implemented")
+    end
+
+    return reshape(element_nodes, (ntuple(_ -> ns.degree[] + 1, D)..., :))
+end
+
+"""
+    unsafe_face_code(nodes::LNodes)
+
+Return an array containing the face code for each quadrant of the mesh. The
+face code indicates which faces and edges of the quadrant are hanging.
+
+See the p4est functions `p4est_lnodes_decode` and `p8est_lnodes_decode` to
+determine how to decode the face code.
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `nodes`
+structure is preserved while using the return value.
+"""
+function unsafe_face_code(nodes::LNodes)
+    ns = PointerWrapper(nodes.pointer)
+
+    ptr = pointer(ns.face_code)
+
+    element_nodes =
+        unsafe_wrap(Vector{eltype(ptr)}, ptr, (ns.num_local_elements[],), own = false)
+
+    return element_nodes
+end
