@@ -538,6 +538,30 @@ function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
 end
 Base.IndexStyle(::Pxest) = IndexLinear()
 
+"""
+    unsafe_global_first_quadrant(forest::Pxest)
+
+Returns 0-based indices into global quadrants.  This includes
+an extra entry at the end of the array so that 1-based range into
+the global quadrants for rank `r` can be built with
+```
+(global_first_quadrant[r]+1):global_first_quadrant[r+1]
+```
+
+Note, this unsafely wraps a C array.  So, you must ensure that the `forest`
+structure is preserved while using the return value.
+"""
+@inline function unsafe_global_first_quadrant(forest::Pxest)
+    fp = PointerWrapper(forest.pointer)
+
+    return unsafe_wrap(
+        Vector{p4est_gloidx_t},
+        pointer(fp.global_first_quadrant),
+        (fp.mpisize[] + 1,),
+        own = false,
+    )
+end
+
 function iterate_volume_callback(info, _)
     info = PointerWrapper(info)
     data = unsafe_pointer_to_objref(pointer(info.p4est.user_pointer))[]

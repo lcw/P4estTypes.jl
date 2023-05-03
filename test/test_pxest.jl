@@ -185,6 +185,10 @@ let
             @test P4estTypes.unsafe_which_tree.(ms) == Int32[1, 2]
             @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2, 3]
             @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2]
+
+            GC.@preserve forest begin
+                @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
+            end
         end
 
         if tworank == 1
@@ -196,6 +200,10 @@ let
             @test P4estTypes.unsafe_which_tree.(ms) == Int32[3, 4, 4]
             @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2]
             @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2, 3]
+
+            GC.@preserve forest begin
+                @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
+            end
         end
     end
 end
