@@ -26,6 +26,8 @@
 @inline pxest_tree_t(::Val{8}) = p8est_tree
 @inline pxest_iter_volume_info_t(::Val{4}) = p4est_iter_volume_info_t
 @inline pxest_iter_volume_info_t(::Val{8}) = p8est_iter_volume_info_t
+@inline pxest_ghost_support_lnodes(::Val{4}) = p4est_ghost_support_lnodes
+@inline pxest_ghost_support_lnodes(::Val{8}) = p8est_ghost_support_lnodes
 
 # TODO move vtk wrapping functions to P4est.jl
 function _p4est_vtk_context_new(forest, prefix)
