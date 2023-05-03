@@ -154,4 +154,50 @@ let
     @test_nowarn P4estTypes.savevtk("basicconn", forest)
 end
 
+let
+    # Create a comm with only 2 ranks
+    worldgroup = MPI.Comm_group(MPI.COMM_WORLD)
+    group = MPI.Group_incl(worldgroup, Cint[0, 1])
+    twocomm = MPI.Comm_create(MPI.COMM_WORLD, group)
+
+    if twocomm != MPI.COMM_NULL
+        tworank = MPI.Comm_rank(twocomm)
+        twosize = MPI.Comm_size(twocomm)
+        @test twosize == 2
+
+        forest = pxest(brick(2, 2); comm = twocomm)
+        refine!(forest; refine = (_, tid, _) -> tid == 4)
+
+        tworank == 0 && @test lengthoflocalquadrants(forest) == 2
+        tworank == 1 && @test lengthoflocalquadrants(forest) == 5
+
+        ghost = ghostlayer(forest)
+        gs = ghosts(ghost)
+        ms = mirrors(ghost)
+        nodes = lnodes(forest; ghost, degree = 2)
+
+        if tworank == 0
+            @test lengthoflocalquadrants(forest) == 2
+            @test P4estTypes.coordinates.(gs) ==
+                  Tuple{Int32,Int32}[(0, 0), (0, 0), (536870912, 0)]
+            @test P4estTypes.coordinates.(ms) == Tuple{Int32,Int32}[(0, 0), (0, 0)]
+            @test P4estTypes.unsafe_which_tree.(gs) == Int32[3, 4, 4]
+            @test P4estTypes.unsafe_which_tree.(ms) == Int32[1, 2]
+            @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2, 3]
+            @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2]
+        end
+
+        if tworank == 1
+            @test lengthoflocalquadrants(forest) == 5
+            @test P4estTypes.coordinates.(gs) == Tuple{Int32,Int32}[(0, 0), (0, 0)]
+            @test P4estTypes.coordinates.(ms) ==
+                  Tuple{Int32,Int32}[(0, 0), (0, 0), (536870912, 0)]
+            @test P4estTypes.unsafe_which_tree.(gs) == Int32[1, 2]
+            @test P4estTypes.unsafe_which_tree.(ms) == Int32[3, 4, 4]
+            @test P4estTypes.unsafe_local_num.(gs) == Int32[1, 2]
+            @test P4estTypes.unsafe_local_num.(ms) == Int32[1, 2, 3]
+        end
+    end
+end
+
 MPI.Finalize()

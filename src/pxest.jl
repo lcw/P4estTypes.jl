@@ -290,6 +290,17 @@ function loaduserdata(quadrant::Quadrant{X,T}) where {X,T}
 end
 
 """
+    unsafe_local_num(quadrant::Quadrant)
+
+Returns the `local_num` field of the underlying quadrant.  This value is only
+sometimes set so the function is marked unsafe.  For example, it is set for
+quadrants returned by [`ghosts`](@ref) and [`mirrors`](@ref).
+"""
+@inline function unsafe_local_num(quadrant::Quadrant)
+    return GC.@preserve quadrant PointerWrapper(quadrant.pointer).p.piggy3.local_num[] + 0x1
+end
+
+"""
     Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
 
 Stores the quadrants in a tree of a Pxest{X, T}.
