@@ -192,6 +192,13 @@ let
                 @test P4estTypes.unsafe_mirror_proc_mirrors(ghost) == Int32[0, 1]
                 @test P4estTypes.unsafe_global_owned_count(nodes) == Int32[15, 22]
                 @test P4estTypes.unsafe_face_code(nodes) == Int8[0, 0]
+                @static if VERSION >= v"1.7"
+                    # The multidimensional array initialization was added with julia 1.6
+                    @test P4estTypes.unsafe_element_nodes(nodes) ==
+                          Int32[0 3 6; 1 4 7; 2 5 8;;; 2 5 8; 9 11 13; 10 12 14]
+                    @test globalid.(Ref(nodes), P4estTypes.unsafe_element_nodes(nodes)) ==
+                          [0 3 6; 1 4 7; 2 5 8;;; 2 5 8; 9 11 13; 10 12 14]
+                end
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
         end
@@ -212,6 +219,23 @@ let
                 @test P4estTypes.unsafe_mirror_proc_mirrors(ghost) == Int32[0, 1, 2]
                 @test P4estTypes.unsafe_global_owned_count(nodes) == Int32[15, 22]
                 @test P4estTypes.unsafe_face_code(nodes) == Int8[0, 12, 9, 6, 0]
+                @static if VERSION >= v"1.7"
+                    # The multidimensional array initialization was added with julia 1.6
+                    @test P4estTypes.unsafe_element_nodes(nodes) == Int32[
+                        22 0 3; 23 1 4; 24 2 5;;;
+                        24 2 5; 25 6 8; 26 7 9;;;
+                        24 7 9; 25 10 12; 26 11 13;;;
+                        24 2 5; 8 14 16; 9 15 17;;;
+                        9 15 17; 12 18 20; 13 19 21
+                    ]
+                    @test globalid.(Ref(nodes), P4estTypes.unsafe_element_nodes(nodes)) == [
+                        6 15 18; 7 16 19; 8 17 20;;;
+                        8 17 20; 13 21 23; 14 22 24;;;
+                        8 22 24; 13 25 27; 14 26 28;;;
+                        8 17 20; 23 29 31; 24 30 32;;;
+                        24 30 32; 27 33 35; 28 34 36
+                    ]
+                end
                 @test P4estTypes.unsafe_global_first_quadrant(forest) == [0, 2, 7]
             end
         end

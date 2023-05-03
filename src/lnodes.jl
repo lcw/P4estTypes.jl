@@ -67,6 +67,19 @@ function Base.unsafe_convert(::Type{Ptr{p8est_lnodes}}, p::LNodes{8,Ptr{p8est_ln
 end
 
 """
+    globalid(nodes::LNodes, localid::p4est_locidx_t)
+
+Returns the global id associated with the node in `LNodes` with local id
+`localid`.
+"""
+Base.@propagate_inbounds function globalid(nodes::LNodes, localid::p4est_locidx_t)
+    pn = PointerWrapper(nodes.pointer)
+    @boundscheck 0 ≤ localid < pn.num_local_nodes[]
+    return localid < pn.owned_count[] ? pn.global_offset[] + localid :
+           pn.nonlocal_nodes[localid-pn.owned_count[]+1]
+end
+
+"""
     unsafe_global_owned_count(nodes::LNodes)
 
 Return an array containing the number of independent nodes owned by each

@@ -17,6 +17,7 @@ export iterateforest
 export refine!, coarsen!, balance!, partition!
 export lnodes, ghostlayer, connectivity
 export ghosts, mirrors
+export globalid
 
 include("sc.jl")
 
