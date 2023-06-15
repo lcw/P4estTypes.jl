@@ -201,26 +201,41 @@ function Connectivity{8}(name::Symbol, args...)
     return Connectivity{8}(pointer)
 end
 
-function Connectivity{X}(VXYZ, EToV) where {X}
-    num_vertices = size(VXYZ, 1)
-    num_elements = size(EToV, 1)
-    conn = Connectivity{X}(P4est.p4est_connectivity_new(num_vertices, num_elements, 0, 0))
+function Connectivity{X}(vertices::AbstractVector, cells::AbstractVector) where {X}
+    if X == 4
+        conn = P4estTypes.Connectivity{X}(
+            P4estTypes.P4est.p4est_connectivity_new(length(vertices), length(cells), 0, 0),
+        )
+    elseif X == 8
+        conn = P4estTypes.Connectivity{X}(
+            P4estTypes.P4est.p8est_connectivity_new(
+                length(vertices),
+                length(cells),
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+    else
+        throw(error("Unsupported cells."))
+    end
     trees = P4estTypes.unsafe_trees(conn)
-    vertices = P4estTypes.unsafe_vertices(conn)
+    cvertices = P4estTypes.unsafe_vertices(conn)
     tree_to_tree = P4estTypes.unsafe_tree_to_tree(conn)
     tree_to_face = P4estTypes.unsafe_tree_to_face(conn)
-
-    for i in eachindex(trees, tree_to_tree, tree_to_face)
-        trees[i] = Tuple(EToV[i, :])
-        tree_to_tree[i] = ntuple(_ -> (i - 1), 4)
-        tree_to_face[i] = ntuple(i -> (i - 1), 4) # important for `complete!(conn)`
+    NUM_FACES = (X == 4) ? 4 : 6
+    for i in eachindex(cells, trees, tree_to_tree, tree_to_face)
+        trees[i] = cells[i] .- 1
+        tree_to_tree[i] = ntuple(_ -> (i - 1), NUM_FACES)
+        tree_to_face[i] = ntuple(j -> (j - 1), NUM_FACES)
     end
 
-    for i in eachindex(vertices)
-        vertices[i] = Tuple(VXYZ[i, :])
+    for i in eachindex(cvertices, vertices)
+        cvertices[i] =
+            ntuple(j -> (j ≤ length(vertices[i]) ? Float64(vertices[i][j]) : 0.0), Val(3))
     end
-
-    complete!(conn)
+    P4estTypes.complete!(conn)
     return conn
 end
 
