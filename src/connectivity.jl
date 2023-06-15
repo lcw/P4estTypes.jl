@@ -240,27 +240,20 @@ end
 """
 function Connectivity{X}(vertices::AbstractVector, cells::AbstractVector) where {X}
     if X == 4
-        conn = P4estTypes.Connectivity{X}(
-            P4estTypes.P4est.p4est_connectivity_new(length(vertices), length(cells), 0, 0),
+        conn = Connectivity{X}(
+            P4est.p4est_connectivity_new(length(vertices), length(cells), 0, 0),
         )
     elseif X == 8
-        conn = P4estTypes.Connectivity{X}(
-            P4estTypes.P4est.p8est_connectivity_new(
-                length(vertices),
-                length(cells),
-                0,
-                0,
-                0,
-                0,
-            ),
+        conn = Connectivity{X}(
+            P4est.p8est_connectivity_new(length(vertices), length(cells), 0, 0, 0, 0),
         )
     else
         throw(error("Unsupported cells."))
     end
-    trees = P4estTypes.unsafe_trees(conn)
-    cvertices = P4estTypes.unsafe_vertices(conn)
-    tree_to_tree = P4estTypes.unsafe_tree_to_tree(conn)
-    tree_to_face = P4estTypes.unsafe_tree_to_face(conn)
+    trees = unsafe_trees(conn)
+    cvertices = unsafe_vertices(conn)
+    tree_to_tree = unsafe_tree_to_tree(conn)
+    tree_to_face = unsafe_tree_to_face(conn)
     NUM_FACES = (X == 4) ? 4 : 6
     for i in eachindex(cells, trees, tree_to_tree, tree_to_face)
         trees[i] = cells[i] .- 1
@@ -272,7 +265,7 @@ function Connectivity{X}(vertices::AbstractVector, cells::AbstractVector) where 
         cvertices[i] =
             ntuple(j -> (j ≤ length(vertices[i]) ? Float64(vertices[i][j]) : 0.0), Val(3))
     end
-    P4estTypes.complete!(conn)
+    complete!(conn)
     return conn
 end
 
