@@ -28,7 +28,7 @@ jobs:
           - x64
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@latest
         with:
           arch: ${{ matrix.arch }}
@@ -56,7 +56,7 @@ jobs:
       OMPI_MCA_rmaps_base_oversubscribe: true
       PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install MPI via apt
         run: |
           sudo apt-get update
