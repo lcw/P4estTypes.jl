@@ -53,6 +53,8 @@ jobs:
       OMPI_MCA_btl_base_warn_component_unused: 0
       OMPI_ALLOW_RUN_AS_ROOT: 1
       OMPI_ALLOW_RUN_AS_ROOT_CONFIRM: 1
+      OMPI_MCA_rmaps_base_oversubscribe: true
+      PRTE_MCA_rmaps_default_mapping_policy: :oversubscribe
     steps:
       - uses: actions/checkout@v3
       - name: Install MPI via apt
