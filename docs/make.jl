@@ -21,7 +21,6 @@ makedocs(;
         "Index" => "refindex.md"
     ],
     checkdocs = :exports,
-    strict = true,
 )
 
 deploydocs(;
