@@ -7,6 +7,7 @@ Pkg.add("UUIDs")
 @static if VERSION >= v"1.8"
     Pkg.compat("MPIPreferences", "0.1")
     Pkg.compat("Preferences", "1")
+    Pkg.compat("UUIDs", "1")
 end
 
 const P4ESTTYPES_TEST = get(ENV, "P4ESTTYPES_TEST", "P4ESTTYPES_JLL_MPI_DEFAULT")
