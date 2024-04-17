@@ -45,7 +45,7 @@ jobs:
           - libmpich-dev
           - libopenmpi-dev
         julia_version:
-          - "1"
+          - "1.10"
       fail-fast: false
     env:
       P4ESTTYPES_TEST: P4ESTTYPES_CUSTOM_MPI_CUSTOM
