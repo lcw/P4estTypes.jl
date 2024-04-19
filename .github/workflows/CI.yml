@@ -29,12 +29,12 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@latest
+      - uses: julia-actions/setup-julia@v2
         with:
           arch: ${{ matrix.arch }}
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v1
-      - uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-runtest@v1
 
   test-system-apt:
     timeout-minutes: 20
@@ -63,7 +63,7 @@ jobs:
           sudo apt-get install -y $MPI
         env:
           MPI: ${{ matrix.mpi }}
-      - uses: julia-actions/setup-julia@latest
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.julia_version }}
       - uses: julia-actions/cache@v1
@@ -90,4 +90,4 @@ jobs:
         run: |
           include(joinpath(pwd(), "test", "configure_packages.jl"))
 
-      - uses: julia-actions/julia-runtest@latest
+      - uses: julia-actions/julia-runtest@v1
