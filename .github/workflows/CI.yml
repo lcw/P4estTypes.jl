@@ -38,6 +38,7 @@ jobs:
           arch: ${{ matrix.arch }}
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v1
+      - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
   test-system-apt:
@@ -94,4 +95,5 @@ jobs:
         run: |
           include(joinpath(pwd(), "test", "configure_packages.jl"))
 
+      - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
