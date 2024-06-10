@@ -11,7 +11,7 @@ export Quadrant, Connectivity, Pxest, GhostLayer, LNodes
 
 export refine, brick, pxest
 export lengthoflocalquadrants, lengthofglobalquadrants # Find better names
-export level, storeuserdata!, loaduserdata
+export level, unsafe_storeuserdata!, unsafe_loaduserdata
 export offset, coordinates
 export iterateforest
 export refine!, coarsen!, balance!, partition!, expand!

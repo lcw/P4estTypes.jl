@@ -75,14 +75,14 @@ let
 
     function foo_init(_, treeid, quadrant)
         data = Foo(treeid, rand(Float64), rand(Float32))
-        storeuserdata!(quadrant, data)
-        @test loaduserdata(quadrant) == data
+        unsafe_storeuserdata!(quadrant, data)
+        @test unsafe_loaduserdata(quadrant, Foo) == data
     end
 
     function foo_check(_, _, quadrant, _, treeid, _)
         @test level(quadrant) == 2
         @test coordinates(quadrant) isa NTuple{2}
-        @test loaduserdata(quadrant).a == treeid
+        @test unsafe_loaduserdata(quadrant, Foo).a == treeid
     end
 
     forest = pxest(conn, min_level = 2, data_type = Foo, init_function = foo_init)
@@ -95,7 +95,6 @@ let
     @test size(forest) == (4,)
     @test P4estTypes.quadrantstyle(forest) == 4
     @test P4estTypes.quadrantndims(forest) == 2
-    @test P4estTypes.typeofquadrantuserdata(forest) == Foo
 
     coarsen!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
@@ -108,23 +107,28 @@ let
 
     function replace(_, _, outgoing, incoming)
         for q in incoming
-            d = loaduserdata(q)
-            storeuserdata!(q, Foo(d.a, length(outgoing), 5.0))
+            d = unsafe_loaduserdata(q, Foo)
+            unsafe_storeuserdata!(q, Foo(d.a, length(outgoing), 5.0))
         end
     end
     partition!(forest; allow_for_coarsening = true)
     coarsen!(forest; init = foo_init, replace, coarsen = (_, t, _) -> iseven(t))
-    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
     iterateforest(
         forest;
-        volume = (_, _, q, _, t, _) -> (@test isodd(t) || loaduserdata(q).b == 4.0),
+        volume = (_, _, q, _, t, _) -> (@test unsafe_loaduserdata(q, Foo).a == t),
+    )
+    iterateforest(
+        forest;
+        volume = (_, _, q, _, t, _) ->
+            (@test isodd(t) || unsafe_loaduserdata(q, Foo).b == 4.0),
     )
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 40
     refine!(forest; init = foo_init, replace, refine = (_, t, _) -> iseven(t))
     iterateforest(forest; volume = foo_check)
     iterateforest(
         forest;
-        volume = (_, _, q, _, t, _) -> (@test isodd(t) || loaduserdata(q).b == 1.0),
+        volume = (_, _, q, _, t, _) ->
+            (@test isodd(t) || unsafe_loaduserdata(q, Foo).b == 1.0),
     )
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
 
@@ -135,9 +139,15 @@ let
         refine = (_, t, q) -> t == 1 && coordinates(q) == (0, 0),
     )
     balance!(forest; init = foo_init, replace)
-    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
+    iterateforest(
+        forest;
+        volume = (_, _, q, _, t, _) -> (@test unsafe_loaduserdata(q, Foo).a == t),
+    )
     partition!(forest)
-    iterateforest(forest; volume = (_, _, q, _, t, _) -> (@test loaduserdata(q).a == t))
+    iterateforest(
+        forest;
+        volume = (_, _, q, _, t, _) -> (@test unsafe_loaduserdata(q, Foo).a == t),
+    )
 
     ghost = ghostlayer(forest)
     @test mirrors(ghost) isa AbstractArray{Quadrant,1}

@@ -206,16 +206,16 @@ const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
 
 """
-    Quadrant{X,T,P}
+    Quadrant{X,P}
 
-Stores a Pxest{X,T} quadrant (where `X=4` indicates a quadrant
+Stores a Pxest{X} quadrant (where `X=4` indicates a quadrant
 and `X=8` indicates an octant; quadrant is used both as the general
-term and the term for the 2D object) with user data of type `T`.
+term and the term for the 2D object).
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Quadrant{X,T,P}
+struct Quadrant{X,P}
     """The pointer (of type `P`) can be a pointer to either a
    `P4estTypes.P4est.p4est_quadrant` or a
    `P4estTypes.P4est.p8est_quadrant`.  See the help
@@ -269,11 +269,11 @@ Returns a tuple of the quadrant's integer coordinates inside its tree.
 end
 
 """
-    storeuserdata!(quadrant::Quadrant, data)
+    unsafe_storeuserdata!(quadrant::Quadrant, data)
 
 Store the user data `data` associated with the `quadrant`.
 """
-function storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T}
+function unsafe_storeuserdata!(quadrant::Quadrant{X}, data::T) where {X,T}
     GC.@preserve quadrant begin
         qs = PointerWrapper(quadrant.pointer)
         unsafe_store!(Ptr{T}(qs.p.user_data[]), data)
@@ -281,11 +281,11 @@ function storeuserdata!(quadrant::Quadrant{X,T}, data::T) where {X,T}
 end
 
 """
-    loaduserdata(quadrant::Quadrant, data)
+    unsafe_loaduserdata(quadrant::Quadrant, type::Type)
 
-Return the user data `data` associated with the `quadrant`.
+Return the user data of type `type` associated with the `quadrant`.
 """
-function loaduserdata(quadrant::Quadrant{X,T}) where {X,T}
+function unsafe_loaduserdata(quadrant::Quadrant{X}, ::Type{T}) where {X,T}
     GC.@preserve quadrant begin
         unsafe_load(Ptr{T}(PointerWrapper(quadrant.pointer).p.user_data[]))
     end
@@ -303,14 +303,14 @@ quadrants returned by [`ghosts`](@ref) and [`mirrors`](@ref).
 end
 
 """
-    Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
+    Tree{X,P,Q} <: AbstractArray{Quadrant,1}
 
-Stores the quadrants in a tree of a Pxest{X, T}.
+Stores the quadrants in a tree of a Pxest{X}.
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Tree{X,T,P,Q} <: AbstractArray{Quadrant,1}
+struct Tree{X,P,Q} <: AbstractArray{Quadrant,1}
     """The pointer (of type `P`) can be a pointer to either a
     `P4estTypes.P4est.p4est_tree` or a
     `P4estTypes.P4est.p8est_tree`.  See the help documentation
@@ -325,13 +325,13 @@ end
 
 Base.size(t::Tree) =
     (convert(Int, (GC.@preserve t PointerWrapper(t.pointer).quadrants.elem_count[])),)
-function Base.getindex(t::Tree{X,T}, i::Int) where {X,T}
+function Base.getindex(t::Tree{X}, i::Int) where {X}
     @boundscheck checkbounds(t, i)
     GC.@preserve t begin
         Q = pxest_quadrant_t(Val(X))
         quadrant =
             Ptr{Q}(pointer(PointerWrapper(t.pointer).quadrants.array) + sizeof(Q) * (i - 1))
-        return Quadrant{X,T,Ptr{Q}}(quadrant)
+        return Quadrant{X,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Tree) = IndexLinear()
@@ -345,10 +345,9 @@ only).
 offset(tree::Tree) = GC.@preserve tree PointerWrapper(tree.pointer).quadrants_offset[]
 
 """
-    Pxest{X,T,P,C} <: AbstractArray{P4estTypes.Tree,1}
+    Pxest{X,P,C} <: AbstractArray{P4estTypes.Tree,1}
 
-Stores the forest of quadtrees (when `X=4`) or octrees (when `X=8`).  The quadrants
-have user data of type `T`.
+Stores the forest of quadtrees (when `X=4`) or octrees (when `X=8`).
 
 This forest of octrees can be accessed in two ways.  First, as an array-of-arrays.
 Each rank holds an array of quadrants for each tree of the [`Connectivity`](@ref)
@@ -372,7 +371,7 @@ $(DocStringExtensions.FIELDS)
 - [`lnodes`](@ref): get a global node numbering.
 - [`P4estTypes.savevtk`](@ref): save a VTK representation of the forest.
 """
-mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
+mutable struct Pxest{X,P,C} <: AbstractArray{Tree,1}
     """The pointer (of type `P`) can be a pointer to either a
     `P4estTypes.P4est.LibP4est.p4est` or a
     `P4estTypes.P4est.LibP4est.p8est`.  See the help documentation for these
@@ -385,26 +384,16 @@ mutable struct Pxest{X,T,P,C} <: AbstractArray{Tree,1}
     """The MPI Communicator that includes the ranks participating in the
     forest."""
     comm::MPI.Comm
-    function Pxest{4}(
-        pointer::Ptr{p4est_t},
-        connectivity::Connectivity{4},
-        comm::MPI.Comm,
-        ::Type{T},
-    ) where {T}
-        forest = new{4,T,typeof(pointer),typeof(connectivity)}(pointer, connectivity, comm)
+    function Pxest{4}(pointer::Ptr{p4est_t}, connectivity::Connectivity{4}, comm::MPI.Comm)
+        forest = new{4,typeof(pointer),typeof(connectivity)}(pointer, connectivity, comm)
         finalizer(forest) do p
             p4est_destroy(p.pointer)
             p.pointer = C_NULL
             return
         end
     end
-    function Pxest{8}(
-        pointer::Ptr{p8est_t},
-        connectivity::Connectivity{8},
-        comm::MPI.Comm,
-        ::Type{T},
-    ) where {T}
-        forest = new{8,T,typeof(pointer),typeof(connectivity)}(pointer, connectivity, comm)
+    function Pxest{8}(pointer::Ptr{p8est_t}, connectivity::Connectivity{8}, comm::MPI.Comm)
+        forest = new{8,typeof(pointer),typeof(connectivity)}(pointer, connectivity, comm)
         finalizer(forest) do p
             p8est_destroy(p.pointer)
             p.pointer = C_NULL
@@ -460,7 +449,7 @@ function pxest(
         C_NULL,
     )
 
-    forest = Pxest{X}(pointer, connectivity, comm, data_type)
+    forest = Pxest{X}(pointer, connectivity, comm)
 
     if !isnothing(init_function)
         init(forest, _, quadrant, _, treeid, _) = init_function(forest, treeid, quadrant)
@@ -485,13 +474,6 @@ Returns 2 if the `forest` quadrants are 2D and 3 if they are 3D.
 function quadrantstyle end
 quadrantndims(::Pxest{4}) = 2
 quadrantndims(::Pxest{8}) = 3
-
-"""
-    typeofquadrantuserdata(forest)
-
-Return the user data type for the user data stored for each quadrant.
-"""
-typeofquadrantuserdata(::Pxest{X,T}) where {X,T} = T
 
 """
     lengthoflocalquadrants(forest)
@@ -520,22 +502,22 @@ Return the [`Connectivity`](@ref) used by the forest.
 """
 connectivity(p::Pxest) = p.connectivity
 
-function Base.unsafe_convert(::Type{Ptr{p4est_t}}, p::Pxest{4,T,Ptr{p4est_t}}) where {T}
+function Base.unsafe_convert(::Type{Ptr{p4est_t}}, p::Pxest{4,Ptr{p4est_t}})
     return p.pointer
 end
-function Base.unsafe_convert(::Type{Ptr{p8est_t}}, p::Pxest{8,T,Ptr{p8est_t}}) where {T}
+function Base.unsafe_convert(::Type{Ptr{p8est_t}}, p::Pxest{8,Ptr{p8est_t}})
     return p.pointer
 end
 
 Base.size(p::Pxest) =
     (convert(Int, (GC.@preserve p PointerWrapper(p.pointer).trees.elem_count[])),)
-function Base.getindex(p::Pxest{X,T}, i::Int) where {X,T}
+function Base.getindex(p::Pxest{X}, i::Int) where {X}
     @boundscheck checkbounds(p, i)
     GC.@preserve p begin
         TR = pxest_tree_t(Val(X))
         tree =
             Ptr{TR}(pointer(PointerWrapper(p.pointer).trees.array) + sizeof(TR) * (i - 1))
-        return Tree{X,T,Ptr{TR},typeof(p)}(tree, p)
+        return Tree{X,Ptr{TR},typeof(p)}(tree, p)
     end
 end
 Base.IndexStyle(::Pxest) = IndexLinear()
@@ -568,8 +550,7 @@ function iterate_volume_callback(info, _)
     info = PointerWrapper(info)
     data = unsafe_pointer_to_objref(pointer(info.p4est.user_pointer))[]
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
-    quadrant = Quadrant{X,T,Ptr{pxest_quadrant_t(Val(X))}}(pointer(info.quad))
+    quadrant = Quadrant{X,Ptr{pxest_quadrant_t(Val(X))}}(pointer(info.quad))
     data.volume(
         data.forest,
         data.ghost,
@@ -654,10 +635,9 @@ function init_callback(forest, treeid, quadrant)
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
 
     data.init(data.forest, treeid + 1, quadrant)
 
@@ -677,14 +657,13 @@ function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, 
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
     outgoing = unsafe_wrap(Array, outgoing, num_outgoing)
-    outgoing = ntuple(i -> Quadrant{X,T,Ptr{Q}}(outgoing[i]), num_outgoing)
+    outgoing = ntuple(i -> Quadrant{X,Ptr{Q}}(outgoing[i]), num_outgoing)
 
     incoming = unsafe_wrap(Array, incoming, num_incoming)
-    incoming = ntuple(i -> Quadrant{X,T,Ptr{Q}}(incoming[i]), num_incoming)
+    incoming = ntuple(i -> Quadrant{X,Ptr{Q}}(incoming[i]), num_incoming)
 
     data.replace(data.forest, treeid + 1, outgoing, incoming)
 
@@ -708,11 +687,10 @@ function coarsen_callback(forest, treeid, children)
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
     children = unsafe_wrap(Array, children, X)
-    children = ntuple(i -> Quadrant{X,T,Ptr{Q}}(children[i]), Val(X))
+    children = ntuple(i -> Quadrant{X,Ptr{Q}}(children[i]), Val(X))
     return data.coarsen(data.forest, treeid + 1, children) ? one(Cint) : zero(Cint)
 end
 
@@ -788,10 +766,9 @@ function refine_callback(forest, treeid, quadrant)
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
     return data.refine(data.forest, treeid + 1, quadrant) ? one(Cint) : zero(Cint)
 end
 
@@ -907,10 +884,9 @@ function weight_callback(forest, treeid, quadrant)
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
     X = quadrantstyle(data.forest)
-    T = typeofquadrantuserdata(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,T,Ptr{Q}}(quadrant)
+    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
     return data.weight(data.forest, treeid + 1, quadrant)
 end
 
