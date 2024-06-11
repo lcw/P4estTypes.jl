@@ -55,7 +55,7 @@ function ghostlayer(forest::Pxest{X}; connection = CONNECT_FULL(Val(X))) where {
     return GhostLayer{X}((pxest_ghost_new(Val(X)))(forest, connection))
 end
 
-struct Ghosts{X,P,Q} <: AbstractArray{Quadrant,1}
+struct Ghosts{X,P,Q} <: AbstractArray{QuadrantWrapper,1}
     pointer::P
     ghostlayer::GhostLayer{X,Q}
 end
@@ -66,12 +66,12 @@ Base.@propagate_inbounds function Base.getindex(g::Ghosts{X}, i::Int) where {X}
     GC.@preserve g begin
         Q = pxest_quadrant_t(Val(X))
         quadrant = Ptr{Q}(pointer(PointerWrapper(g.pointer).array) + sizeof(Q) * (i - 1))
-        return Quadrant{X,Ptr{Q}}(quadrant)
+        return QuadrantWrapper{X,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Ghosts) = IndexLinear()
 
-struct Mirrors{X,P,Q} <: AbstractArray{Quadrant,1}
+struct Mirrors{X,P,Q} <: AbstractArray{QuadrantWrapper,1}
     pointer::P
     ghostlayer::GhostLayer{X,Q}
 end
@@ -82,7 +82,7 @@ Base.@propagate_inbounds function Base.getindex(m::Mirrors{X}, i::Int) where {X}
     GC.@preserve m begin
         Q = pxest_quadrant_t(Val(X))
         quadrant = Ptr{Q}(pointer(PointerWrapper(m.pointer).array) + sizeof(Q) * (i - 1))
-        return Quadrant{X,Ptr{Q}}(quadrant)
+        return QuadrantWrapper{X,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Mirrors) = IndexLinear()
@@ -90,7 +90,7 @@ Base.IndexStyle(::Mirrors) = IndexLinear()
 """
     ghosts(gl::GhostLayer)
 
-Returns an array-like structure with the [`Quadrant`](@ref)s that neighbor the
+Returns an array-like structure with the [`QuadrantWrapper`](@ref)s that neighbor the
 domain of the local rank.
 """
 function ghosts(gl::GhostLayer{X}) where {X}
@@ -101,7 +101,7 @@ end
 """
     mirrors(gl::GhostLayer)
 
-Returns an array-like structure with the [`Quadrant`](@ref)s in the local
+Returns an array-like structure with the [`QuadrantWrapper`](@ref)s in the local
 domain that are in neighboring rank's ghost layers.
 """
 function mirrors(gl::GhostLayer{X}) where {X}
@@ -143,7 +143,7 @@ Consider the following forest-of-quadtrees
 
 that is partitioned so rank 0 owns quadrants {0,1} and rank 1 owns quadrants
 {2, 3, 4, 5, 6}.  A fully connected ghost layer on rank 0 would include
-quadrants {2, 3, 4}.  Quadrant 5 shares a global node with rank 0 but is not
+quadrants {2, 3, 4}.  QuadrantWrapper 5 shares a global node with rank 0 but is not
 in the fully connected ghost layer.  This function expands the ghost layer
 to include quadrants like this.
 

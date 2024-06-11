@@ -206,7 +206,7 @@ const Locidx = P4est.p4est_locidx_t
 const Gloidx = P4est.p4est_gloidx_t
 
 """
-    Quadrant{X,P}
+    QuadrantWrapper{X,P}
 
 Stores a Pxest{X} quadrant (where `X=4` indicates a quadrant
 and `X=8` indicates an octant; quadrant is used both as the general
@@ -215,7 +215,7 @@ term and the term for the 2D object).
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Quadrant{X,P}
+struct QuadrantWrapper{X,P}
     """The pointer (of type `P`) can be a pointer to either a
    `P4estTypes.P4est.p4est_quadrant` or a
    `P4estTypes.P4est.p8est_quadrant`.  See the help
@@ -225,20 +225,20 @@ struct Quadrant{X,P}
 end
 
 """
-    level(quadrant::Quadrant)
+    level(quadrant::QuadrantWrapper)
 
 Returns the level of refinement for the quadrant.  Level 0 is the coarsest
 level and `P4estTypes.P4est.P4EST_QMAXLEVEL` is the maximum refinement level.
 """
-@inline level(quadrant::Quadrant) =
+@inline level(quadrant::QuadrantWrapper) =
     GC.@preserve quadrant PointerWrapper(quadrant.pointer).level[]
 
 """
-    coordinates(quadrant::Quadrant{4})
+    coordinates(quadrant::QuadrantWrapper{4})
 
 Returns a tuple of the quadrant's integer coordinates inside its tree.
 """
-@inline function coordinates(quadrant::Quadrant{4})
+@inline function coordinates(quadrant::QuadrantWrapper{4})
     GC.@preserve quadrant begin
         qs = PointerWrapper(quadrant.pointer)
         return (qs.x[], qs.y[])
@@ -246,22 +246,22 @@ Returns a tuple of the quadrant's integer coordinates inside its tree.
 end
 
 """
-    unsafe_which_tree(quadrant::Quadrant)
+    unsafe_which_tree(quadrant::QuadrantWrapper)
 
 Returns the `which_tree` field of the underlying quadrant.  This value is only
 sometimes set so the function is marked unsafe.
 """
-@inline function unsafe_which_tree(quadrant::Quadrant)
+@inline function unsafe_which_tree(quadrant::QuadrantWrapper)
     return GC.@preserve quadrant PointerWrapper(quadrant.pointer).p.piggy3.which_tree[] +
                                  0x1
 end
 
 """
-    coordinates(quadrant::Quadrant{8})
+    coordinates(quadrant::QuadrantWrapper{8})
 
 Returns a tuple of the quadrant's integer coordinates inside its tree.
 """
-@inline function coordinates(quadrant::Quadrant{8})
+@inline function coordinates(quadrant::QuadrantWrapper{8})
     GC.@preserve quadrant begin
         qs = PointerWrapper(quadrant.pointer)
         return (qs.x[], qs.y[], qs.z[])
@@ -269,11 +269,11 @@ Returns a tuple of the quadrant's integer coordinates inside its tree.
 end
 
 """
-    unsafe_storeuserdata!(quadrant::Quadrant, data)
+    unsafe_storeuserdata!(quadrant::QuadrantWrapper, data)
 
 Store the user data `data` associated with the `quadrant`.
 """
-function unsafe_storeuserdata!(quadrant::Quadrant{X}, data::T) where {X,T}
+function unsafe_storeuserdata!(quadrant::QuadrantWrapper{X}, data::T) where {X,T}
     GC.@preserve quadrant begin
         qs = PointerWrapper(quadrant.pointer)
         unsafe_store!(Ptr{T}(qs.p.user_data[]), data)
@@ -281,36 +281,36 @@ function unsafe_storeuserdata!(quadrant::Quadrant{X}, data::T) where {X,T}
 end
 
 """
-    unsafe_loaduserdata(quadrant::Quadrant, type::Type)
+    unsafe_loaduserdata(quadrant::QuadrantWrapper, type::Type)
 
 Return the user data of type `type` associated with the `quadrant`.
 """
-function unsafe_loaduserdata(quadrant::Quadrant{X}, ::Type{T}) where {X,T}
+function unsafe_loaduserdata(quadrant::QuadrantWrapper{X}, ::Type{T}) where {X,T}
     GC.@preserve quadrant begin
         unsafe_load(Ptr{T}(PointerWrapper(quadrant.pointer).p.user_data[]))
     end
 end
 
 """
-    unsafe_local_num(quadrant::Quadrant)
+    unsafe_local_num(quadrant::QuadrantWrapper)
 
 Returns the `local_num` field of the underlying quadrant.  This value is only
 sometimes set so the function is marked unsafe.  For example, it is set for
 quadrants returned by [`ghosts`](@ref) and [`mirrors`](@ref).
 """
-@inline function unsafe_local_num(quadrant::Quadrant)
+@inline function unsafe_local_num(quadrant::QuadrantWrapper)
     return GC.@preserve quadrant PointerWrapper(quadrant.pointer).p.piggy3.local_num[] + 0x1
 end
 
 """
-    Tree{X,P,Q} <: AbstractArray{Quadrant,1}
+    Tree{X,P,Q} <: AbstractArray{QuadrantWrapper,1}
 
 Stores the quadrants in a tree of a Pxest{X}.
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct Tree{X,P,Q} <: AbstractArray{Quadrant,1}
+struct Tree{X,P,Q} <: AbstractArray{QuadrantWrapper,1}
     """The pointer (of type `P`) can be a pointer to either a
     `P4estTypes.P4est.p4est_tree` or a
     `P4estTypes.P4est.p8est_tree`.  See the help documentation
@@ -331,7 +331,7 @@ function Base.getindex(t::Tree{X}, i::Int) where {X}
         Q = pxest_quadrant_t(Val(X))
         quadrant =
             Ptr{Q}(pointer(PointerWrapper(t.pointer).quadrants.array) + sizeof(Q) * (i - 1))
-        return Quadrant{X,Ptr{Q}}(quadrant)
+        return QuadrantWrapper{X,Ptr{Q}}(quadrant)
     end
 end
 Base.IndexStyle(::Tree) = IndexLinear()
@@ -550,7 +550,7 @@ function iterate_volume_callback(info, _)
     info = PointerWrapper(info)
     data = unsafe_pointer_to_objref(pointer(info.p4est.user_pointer))[]
     X = quadrantstyle(data.forest)
-    quadrant = Quadrant{X,Ptr{pxest_quadrant_t(Val(X))}}(pointer(info.quad))
+    quadrant = QuadrantWrapper{X,Ptr{pxest_quadrant_t(Val(X))}}(pointer(info.quad))
     data.volume(
         data.forest,
         data.ghost,
@@ -637,7 +637,7 @@ function init_callback(forest, treeid, quadrant)
     X = quadrantstyle(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
+    quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
 
     data.init(data.forest, treeid + 1, quadrant)
 
@@ -660,10 +660,10 @@ function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, 
     Q = pxest_quadrant_t(Val(X))
 
     outgoing = unsafe_wrap(Array, outgoing, num_outgoing)
-    outgoing = ntuple(i -> Quadrant{X,Ptr{Q}}(outgoing[i]), num_outgoing)
+    outgoing = ntuple(i -> QuadrantWrapper{X,Ptr{Q}}(outgoing[i]), num_outgoing)
 
     incoming = unsafe_wrap(Array, incoming, num_incoming)
-    incoming = ntuple(i -> Quadrant{X,Ptr{Q}}(incoming[i]), num_incoming)
+    incoming = ntuple(i -> QuadrantWrapper{X,Ptr{Q}}(incoming[i]), num_incoming)
 
     data.replace(data.forest, treeid + 1, outgoing, incoming)
 
@@ -690,7 +690,7 @@ function coarsen_callback(forest, treeid, children)
     Q = pxest_quadrant_t(Val(X))
 
     children = unsafe_wrap(Array, children, X)
-    children = ntuple(i -> Quadrant{X,Ptr{Q}}(children[i]), Val(X))
+    children = ntuple(i -> QuadrantWrapper{X,Ptr{Q}}(children[i]), Val(X))
     return data.coarsen(data.forest, treeid + 1, children) ? one(Cint) : zero(Cint)
 end
 
@@ -722,7 +722,8 @@ The other keyword arguments (`kw...`) for the coarsening are:
  - `replace = nothing`: callback function with prototype
    `replace(forest, treeid, outgoing, incoming)` called for each set of
    `outgoing` quadrants with their associated `incoming` quadrant.  Note
-    both `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+    both `outgoing` and `incoming` are arrays with `eltype`
+    [`QuadrantWrapper`](@ref).
 
 See `@doc P4estTypes.P4est.p4est_coarsen_ext` and
 `@doc P4estTypes.P4est.p8est_coarsen_ext` for more information about
@@ -768,7 +769,7 @@ function refine_callback(forest, treeid, quadrant)
     X = quadrantstyle(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
+    quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
     return data.refine(data.forest, treeid + 1, quadrant) ? one(Cint) : zero(Cint)
 end
 
@@ -800,7 +801,7 @@ The other keyword arguments (`kw...`) for the refining are:
  - `replace = nothing`: callback function with prototype
    `replace(forest, treeid, outgoing, incoming)` called for each
    `outgoing` quadrant with their associated `incoming` quadrants. Note both
-   `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+   `outgoing` and `incoming` are arrays with `eltype` [`QuadrantWrapper`](@ref).
 
 See `@doc P4estTypes.P4est.p4est_refine_ext` and
 `@doc P4estTypes.P4est.p8est_refine_ext` for more information about
@@ -852,7 +853,7 @@ The keyword arguments (`kw...`) for the balancing are:
  - `replace = nothing`: callback function with prototype
    `replace(forest, treeid, outgoing, incoming)` called for each
    `outgoing` quadrant with their associated `incoming` quadrants. Note both
-   `outgoing` and `incoming` are arrays with `eltype` [`Quadrant`](@ref).
+   `outgoing` and `incoming` are arrays with `eltype` [`QuadrantWrapper`](@ref).
 
 See `@doc P4estTypes.P4est.p4est_balance_ext` and
 `@doc P4estTypes.P4est.p8est_balance_ext` for more information about
@@ -886,7 +887,7 @@ function weight_callback(forest, treeid, quadrant)
     X = quadrantstyle(data.forest)
     Q = pxest_quadrant_t(Val(X))
 
-    quadrant = Quadrant{X,Ptr{Q}}(quadrant)
+    quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
     return data.weight(data.forest, treeid + 1, quadrant)
 end
 
@@ -976,8 +977,8 @@ function Base.show(io::IO, tree::Tree{X}) where {X}
     print(io, "Tree{$X} with $(length(tree)) quadrants.")
 end
 
-function Base.show(io::IO, q::Quadrant{X}) where {X}
-    print(io, "Quadrant{$X}: level $(level(q)), coordinates $(coordinates(q)).")
+function Base.show(io::IO, q::QuadrantWrapper{X}) where {X}
+    print(io, "QuadrantWrapper{$X}: level $(level(q)), coordinates $(coordinates(q)).")
 end
 
 """
