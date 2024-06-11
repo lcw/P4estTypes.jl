@@ -24,7 +24,7 @@ export globalid
 # source will show what archs do not support cfunction closures.  The julia
 # tracking issue from AArch64 is
 #    https://github.com/JuliaLang/julia/issues/27174
-const cfunction_closure = !(Sys.ARCH === :x86_64 || Sys.ARCH === :i686)
+const cfunction_closure = Sys.ARCH === :x86_64 || Sys.ARCH === :i686
 
 include("sc.jl")
 
