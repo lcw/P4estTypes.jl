@@ -592,18 +592,94 @@ See `@doc P4estTypes.P4est.p4est_iterate` and
 the iteration.
 """
 function iterateforest(
-    forest::Pxest{X};
+    forest::Pxest{4};
+    ghost = nothing,
+    volume = nothing,
+    face = nothing,
+    corner = nothing,
+    userdata = nothing,
+)
+    data = Ref((; forest, ghost, volume, face, corner, userdata))
+    ghost = isnothing(ghost) ? C_NULL : ghost
+
+    if cfunction_closure && !isnothing(volume)
+        function vlm(info::Ptr{p4est_iter_volume_info_t}, ::Ptr{Cvoid})::Cvoid
+            info = PointerWrapper(info)
+
+            quadrant = QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(pointer(info.quad))
+
+            volume(forest, ghost, quadrant, info.quadid[] + 1, info.treeid[] + 1, userdata)
+
+            return
+        end
+        volume_callback =
+            @cfunction($vlm, Cvoid, (Ptr{p4est_iter_volume_info_t}, Ptr{Cvoid}))
+    else
+        volume_callback = isnothing(volume) ? C_NULL : generate_volume_callback(Val(4))
+    end
+
+
+    if face !== nothing
+        error("Face iteration not implemented")
+    end
+    if corner !== nothing
+        error("Corner iteration not implemented")
+    end
+
+    GC.@preserve data begin
+        if cfunction_closure
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+        end
+
+        p4est_iterate(forest, ghost, C_NULL, volume_callback, C_NULL, C_NULL)
+
+        if cfunction_closure
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
+    end
+
+    return
+end
+
+function iterateforest(
+    forest::Pxest{8};
     ghost = nothing,
     volume = nothing,
     face = nothing,
     edge = nothing,
     corner = nothing,
     userdata = nothing,
-) where {X}
+)
     data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
 
     ghost = isnothing(ghost) ? C_NULL : ghost
-    volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
+
+    if cfunction_closure && !isnothing(volume)
+        vlm =
+            (info, _)::Cvoid -> begin
+                info = PointerWrapper(info)
+
+                quadrant = QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(pointer(info.quad))
+
+                volume(
+                    forest,
+                    ghost,
+                    quadrant,
+                    info.quadid[] + 1,
+                    info.treeid[] + 1,
+                    userdata,
+                )
+
+                return
+            end
+        volume_callback =
+            @cfunction($vlm, Cvoid, (Ptr{p8est_iter_volume_info_t}, Ptr{Cvoid}))
+    else
+        volume_callback::Ptr{Cvoid} =
+            isnothing(volume) ? C_NULL : generate_volume_callback(Val(8))
+    end
+
+
     if face !== nothing
         error("Face iteration not implemented")
     end
@@ -615,17 +691,15 @@ function iterateforest(
     end
 
     GC.@preserve data begin
-        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
-
-        if X == 4
-            p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
-        elseif X == 8
-            p8est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL, C_NULL)
-        else
-            error("Not implemented")
+        if cfunction_closure
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
         end
 
-        PointerWrapper(forest.pointer).user_pointer = C_NULL
+        p8est_iterate(forest, ghost, C_NULL, volume_callback, C_NULL, C_NULL, C_NULL)
+
+        if cfunction_closure
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
     end
 
     return
