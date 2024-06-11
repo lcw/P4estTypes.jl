@@ -7,7 +7,7 @@ using P4est
 using RecipesBase
 using SparseArrays
 
-export Quadrant, Connectivity, Pxest, GhostLayer, LNodes
+export QuadrantWrapper, Connectivity, Pxest, GhostLayer, LNodes
 
 export refine, brick, pxest
 export lengthoflocalquadrants, lengthofglobalquadrants # Find better names

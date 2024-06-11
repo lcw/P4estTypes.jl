@@ -150,14 +150,14 @@ let
     )
 
     ghost = ghostlayer(forest)
-    @test mirrors(ghost) isa AbstractArray{Quadrant,1}
-    @test ghosts(ghost) isa AbstractArray{Quadrant,1}
+    @test mirrors(ghost) isa AbstractArray{QuadrantWrapper,1}
+    @test ghosts(ghost) isa AbstractArray{QuadrantWrapper,1}
     @test size(mirrors(ghost), 1) >= 0
     @test size(ghosts(ghost), 1) >= 0
 
     # Make sure we can index into the ghosts and mirrors array
-    @test collect(mirrors(ghost)) isa AbstractArray{Quadrant,1}
-    @test collect(ghosts(ghost)) isa AbstractArray{Quadrant,1}
+    @test collect(mirrors(ghost)) isa AbstractArray{QuadrantWrapper,1}
+    @test collect(ghosts(ghost)) isa AbstractArray{QuadrantWrapper,1}
 
     @test lnodes(forest; ghost, degree = 3) isa LNodes
 
