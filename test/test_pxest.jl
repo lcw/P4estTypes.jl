@@ -40,6 +40,8 @@ let
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
     partition!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
+    partition!(forest; weight = (_...) -> rand((1, 2)))
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
 
     @test_nowarn P4estTypes.savevtk("basicbrick", forest)
 end
@@ -103,6 +105,8 @@ let
     balance!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
     partition!(forest)
+    @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
+    partition!(forest; weight = (_...) -> rand((1, 2)))
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
 
     function replace(_, _, outgoing, incoming)

@@ -19,6 +19,13 @@ export lnodes, ghostlayer, connectivity
 export ghosts, mirrors, sharers
 export globalid
 
+# Running
+#     grep -C 2 "closures are not supported" src/codegen.cpp in the julia
+# source will show what archs do not support cfunction closures.  The julia
+# tracking issue from AArch64 is
+#    https://github.com/JuliaLang/julia/issues/27174
+const cfunction_closure = Sys.ARCH === :x86_64 || Sys.ARCH === :i686
+
 include("sc.jl")
 
 initialized() = P4est.package_id() >= 0

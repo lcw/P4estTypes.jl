@@ -569,6 +569,32 @@ end
     end
 end
 
+function generate_volume_closure(::Val{4}, volume, forest, ghost, userdata)
+    function c(info::Ptr{p4est_iter_volume_info_t}, ::Ptr{Cvoid})::Cvoid
+        info = PointerWrapper(info)
+
+        quadrant = QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(pointer(info.quad))
+
+        volume(forest, ghost, quadrant, info.quadid[] + 0x1, info.treeid[] + 0x1, userdata)
+
+        return
+    end
+    @cfunction($c, Cvoid, (Ptr{p4est_iter_volume_info_t}, Ptr{Cvoid}))
+end
+
+function generate_volume_closure(::Val{8}, volume, forest, ghost, userdata)
+    function c(info::Ptr{p8est_iter_volume_info_t}, ::Ptr{Cvoid})::Cvoid
+        info = PointerWrapper(info)
+
+        quadrant = QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(pointer(info.quad))
+
+        volume(forest, ghost, quadrant, info.quadid[] + 0x1, info.treeid[] + 0x1, userdata)
+
+        return
+    end
+    @cfunction($c, Cvoid, (Ptr{p8est_iter_volume_info_t}, Ptr{Cvoid}))
+end
+
 """
     iterateforest(forest; kw...)
 
@@ -592,40 +618,68 @@ See `@doc P4estTypes.P4est.p4est_iterate` and
 the iteration.
 """
 function iterateforest(
-    forest::Pxest{X};
+    forest::Pxest{4};
+    ghost = nothing,
+    volume = nothing,
+    face = nothing,
+    corner = nothing,
+    userdata = nothing,
+)
+    if cfunction_closure && !isnothing(volume)
+        volume_ = generate_volume_closure(Val(4), volume, forest, ghost, userdata)
+    else
+        volume_ = isnothing(volume) ? C_NULL : generate_volume_callback(Val(4))
+    end
+
+    ghost_ = isnothing(ghost) ? C_NULL : ghost
+    face_::Ptr{Cvoid} = isnothing(face) ? C_NULL : error("Face iteration not implemented")
+    corner_::Ptr{Cvoid} =
+        isnothing(corner) ? C_NULL : error("Corner iteration not implemented")
+
+    if cfunction_closure
+        p4est_iterate(forest, ghost_, C_NULL, volume_, face_, corner_)
+    else
+        data = Ref((; forest, ghost, volume, face, corner, userdata))
+        GC.@preserve data begin
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+            p4est_iterate(forest, ghost_, C_NULL, volume_, face_, corner_)
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
+    end
+
+    return
+end
+
+function iterateforest(
+    forest::Pxest{8};
     ghost = nothing,
     volume = nothing,
     face = nothing,
     edge = nothing,
     corner = nothing,
     userdata = nothing,
-) where {X}
-    data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
-
-    ghost = isnothing(ghost) ? C_NULL : ghost
-    volume::Ptr{Cvoid} = isnothing(volume) ? C_NULL : generate_volume_callback(Val(X))
-    if face !== nothing
-        error("Face iteration not implemented")
-    end
-    if edge !== nothing
-        error("Edge iteration not implemented")
-    end
-    if corner !== nothing
-        error("Corner iteration not implemented")
+)
+    if cfunction_closure && !isnothing(volume)
+        volume_ = generate_volume_closure(Val(8), volume, forest, ghost, userdata)
+    else
+        volume_ = isnothing(volume) ? C_NULL : generate_volume_callback(Val(8))
     end
 
-    GC.@preserve data begin
-        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+    ghost_ = isnothing(ghost) ? C_NULL : ghost
+    face_::Ptr{Cvoid} = isnothing(face) ? C_NULL : error("Face iteration not implemented")
+    edge_::Ptr{Cvoid} = isnothing(edge) ? C_NULL : error("Edge iteration not implemented")
+    corner_::Ptr{Cvoid} =
+        isnothing(corner) ? C_NULL : error("Corner iteration not implemented")
 
-        if X == 4
-            p4est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL)
-        elseif X == 8
-            p8est_iterate(forest, ghost, C_NULL, volume, C_NULL, C_NULL, C_NULL)
-        else
-            error("Not implemented")
+    if cfunction_closure
+        p8est_iterate(forest, ghost_, C_NULL, volume_, face_, edge_, corner_)
+    else
+        data = Ref((; forest, ghost, volume, face, edge, corner, userdata))
+        GC.@preserve data begin
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+            p8est_iterate(forest, ghost_, C_NULL, volume_, face_, edge_, corner_)
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
         end
-
-        PointerWrapper(forest.pointer).user_pointer = C_NULL
     end
 
     return
@@ -651,6 +705,24 @@ end
     quote
         @cfunction(init_callback, Cvoid, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
     end
+end
+
+function generate_init_closure(::Val{4}, init, forest)
+    function c(::Ptr{p4est_t}, tid::p4est_topidx_t, q::Ptr{p4est_quadrant_t})::Cvoid
+        quadrant = QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(q)
+        init(forest, tid + 0x1, quadrant)
+        return
+    end
+    @cfunction($c, Cvoid, (Ptr{p4est_t}, p4est_topidx_t, Ptr{p4est_quadrant_t}))
+end
+
+function generate_init_closure(::Val{8}, init, forest)
+    function c(::Ptr{p8est_t}, tid::p4est_topidx_t, q::Ptr{p8est_quadrant_t})::Cvoid
+        quadrant = QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(q)
+        init(forest, tid + 0x1, quadrant)
+        return
+    end
+    @cfunction($c, Cvoid, (Ptr{p8est_t}, p4est_topidx_t, Ptr{p8est_quadrant_t}))
 end
 
 function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, incoming)
@@ -683,6 +755,66 @@ end
     end
 end
 
+function generate_replace_closure(::Val{4}, replace, forest)
+    function c(
+        ::Ptr{p4est_t},
+        tid::p4est_topidx_t,
+        nout::Cint,
+        out::Ptr{Ptr{p4est_quadrant_t}},
+        ninx::Cint,
+        inx::Ptr{Ptr{p4est_quadrant_t}},
+    )::Cvoid
+        outgoing =
+            ntuple(i -> QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(unsafe_load(out, i)), nout)
+        incoming =
+            ntuple(i -> QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(unsafe_load(inx, i)), ninx)
+        replace(forest, tid + 0x1, outgoing, incoming)
+        return
+    end
+    @cfunction(
+        $c,
+        Cvoid,
+        (
+            Ptr{p4est_t},
+            p4est_topidx_t,
+            Cint,
+            Ptr{Ptr{p4est_quadrant_t}},
+            Cint,
+            Ptr{Ptr{p4est_quadrant_t}},
+        )
+    )
+end
+
+function generate_replace_closure(::Val{8}, replace, forest)
+    function c(
+        ::Ptr{p8est_t},
+        tid::p4est_topidx_t,
+        nout::Cint,
+        out::Ptr{Ptr{p8est_quadrant_t}},
+        ninx::Cint,
+        inx::Ptr{Ptr{p8est_quadrant_t}},
+    )::Cvoid
+        outgoing =
+            ntuple(i -> QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(unsafe_load(out, i)), nout)
+        incoming =
+            ntuple(i -> QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(unsafe_load(inx, i)), ninx)
+        replace(forest, tid + 0x1, outgoing, incoming)
+        return
+    end
+    @cfunction(
+        $c,
+        Cvoid,
+        (
+            Ptr{p8est_t},
+            p4est_topidx_t,
+            Cint,
+            Ptr{Ptr{p8est_quadrant_t}},
+            Cint,
+            Ptr{Ptr{p8est_quadrant_t}},
+        )
+    )
+end
+
 function coarsen_callback(forest, treeid, children)
     data = unsafe_pointer_to_objref(pointer(PointerWrapper(forest).user_pointer))[]
 
@@ -703,6 +835,23 @@ end
     end
 end
 
+function generate_coarsen_closure(::Val{4}, coarsen, forest)
+    function c(::Ptr{p4est_t}, tid::p4est_topidx_t, s::Ptr{Ptr{p4est_quadrant_t}})::Cint
+        siblings =
+            ntuple(i -> QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(unsafe_load(s, i)), Val(4))
+        return coarsen(forest, tid + 0x1, siblings)
+    end
+    @cfunction($c, Cint, (Ptr{p4est_t}, p4est_topidx_t, Ptr{Ptr{p4est_quadrant_t}}))
+end
+
+function generate_coarsen_closure(::Val{8}, coarsen, forest)
+    function c(::Ptr{p8est_t}, tid::p4est_topidx_t, s::Ptr{Ptr{p8est_quadrant_t}})::Cint
+        siblings =
+            ntuple(i -> QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(unsafe_load(s, i)), Val(8))
+        return coarsen(forest, tid + 0x1, siblings)
+    end
+    @cfunction($c, Cint, (Ptr{p8est_t}, p4est_topidx_t, Ptr{Ptr{p8est_quadrant_t}}))
+end
 
 """
     coarsen!(forest; coarsen = (_...) -> false, kw...)
@@ -736,28 +885,44 @@ function coarsen!(
     init = nothing,
     replace = nothing,
 ) where {X}
-    data = Ref((; forest, coarsen, init, replace))
-
-    # Right now we do not support loading a orphans
+    # Right now we do not support loading an orphan
     callback_orphans = false
 
-    coarsen::Ptr{Cvoid} = isnothing(coarsen) ? C_NULL : generate_coarsen_callback(Val(X))
-    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
-    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
-
-    GC.@preserve data begin
-        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+    if cfunction_closure
+        coarsen_ =
+            isnothing(coarsen) ? C_NULL : generate_coarsen_closure(Val(X), coarsen, forest)
+        init_ = isnothing(init) ? C_NULL : generate_init_closure(Val(X), init, forest)
+        replace_ =
+            isnothing(replace) ? C_NULL : generate_replace_closure(Val(X), replace, forest)
 
         (pxest_coarsen_ext(Val(X)))(
             forest,
             recursive,
             callback_orphans,
-            coarsen,
-            init,
-            replace,
+            coarsen_,
+            init_,
+            replace_,
         )
+    else
+        coarsen_ = isnothing(coarsen) ? C_NULL : generate_coarsen_callback(Val(X))
+        init_ = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+        replace_ = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
-        PointerWrapper(forest.pointer).user_pointer = C_NULL
+        data = Ref((; forest, coarsen, init, replace))
+        GC.@preserve data begin
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+
+            (pxest_coarsen_ext(Val(X)))(
+                forest,
+                recursive,
+                callback_orphans,
+                coarsen_,
+                init_,
+                replace_,
+            )
+
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
     end
 
     return
@@ -780,6 +945,22 @@ end
     quote
         @cfunction(refine_callback, Cint, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
     end
+end
+
+function generate_refine_closure(::Val{4}, refine, forest)
+    function c(::Ptr{p4est_t}, tid::p4est_topidx_t, q::Ptr{p4est_quadrant_t})::Cint
+        quadrant = QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(q)
+        return refine(forest, tid + 0x1, quadrant)
+    end
+    @cfunction($c, Cint, (Ptr{p4est_t}, p4est_topidx_t, Ptr{p4est_quadrant_t}))
+end
+
+function generate_refine_closure(::Val{8}, refine, forest)
+    function c(::Ptr{p8est_t}, tid::p4est_topidx_t, q::Ptr{p8est_quadrant_t})::Cint
+        quadrant = QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(q)
+        return refine(forest, tid + 0x1, quadrant)
+    end
+    @cfunction($c, Cint, (Ptr{p8est_t}, p4est_topidx_t, Ptr{p8est_quadrant_t}))
 end
 
 """
@@ -815,18 +996,35 @@ function refine!(
     init = nothing,
     replace = nothing,
 ) where {X}
-    data = Ref((; forest, refine, init, replace))
+    if cfunction_closure
+        refine_ =
+            isnothing(refine) ? C_NULL : generate_refine_closure(Val(X), refine, forest)
+        init_ = isnothing(init) ? C_NULL : generate_init_closure(Val(X), init, forest)
+        replace_ =
+            isnothing(replace) ? C_NULL : generate_replace_closure(Val(X), replace, forest)
 
-    refine::Ptr{Cvoid} = isnothing(refine) ? C_NULL : generate_refine_callback(Val(X))
-    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
-    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
+        (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine_, init_, replace_)
+    else
+        refine_ = isnothing(refine) ? C_NULL : generate_refine_callback(Val(X))
+        init_ = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+        replace_ = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
-    GC.@preserve data begin
-        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+        data = Ref((; forest, refine, init, replace))
 
-        (pxest_refine_ext(Val(X)))(forest, recursive, maxlevel, refine, init, replace)
+        GC.@preserve data begin
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
-        PointerWrapper(forest.pointer).user_pointer = C_NULL
+            (pxest_refine_ext(Val(X)))(
+                forest,
+                recursive,
+                maxlevel,
+                refine_,
+                init_,
+                replace_,
+            )
+
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
     end
 
     return
@@ -865,17 +1063,25 @@ function balance!(
     init = nothing,
     replace = nothing,
 ) where {X}
-    data = Ref((; forest, init, replace))
+    if cfunction_closure
+        init_ = isnothing(init) ? C_NULL : generate_init_closure(Val(X), init, forest)
+        replace_ =
+            isnothing(replace) ? C_NULL : generate_replace_closure(Val(X), replace, forest)
 
-    init::Ptr{Cvoid} = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
-    replace::Ptr{Cvoid} = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
+        (pxest_balance_ext(Val(X)))(forest, connect, init_, replace_)
+    else
+        init_ = isnothing(init) ? C_NULL : generate_init_callback(Val(X))
+        replace_ = isnothing(replace) ? C_NULL : generate_replace_callback(Val(X))
 
-    GC.@preserve data begin
-        PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+        data = Ref((; forest, init, replace))
 
-        (pxest_balance_ext(Val(X)))(forest, connect, init, replace)
+        GC.@preserve data begin
+            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
-        PointerWrapper(forest.pointer).user_pointer = C_NULL
+            (pxest_balance_ext(Val(X)))(forest, connect, init_, replace_)
+
+            PointerWrapper(forest.pointer).user_pointer = C_NULL
+        end
     end
 
     return
@@ -898,6 +1104,22 @@ end
     quote
         @cfunction(weight_callback, Cint, (Ptr{$P}, p4est_topidx_t, Ptr{$Q}))
     end
+end
+
+function generate_weight_closure(::Val{4}, weight, forest)
+    function c(::Ptr{p4est_t}, tid::p4est_topidx_t, q::Ptr{p4est_quadrant_t})::Cint
+        quadrant = QuadrantWrapper{4,Ptr{p4est_quadrant_t}}(q)
+        return weight(forest, tid + 0x1, quadrant)
+    end
+    @cfunction($c, Cint, (Ptr{p4est_t}, p4est_topidx_t, Ptr{p4est_quadrant_t}))
+end
+
+function generate_weight_closure(::Val{8}, weight, forest)
+    function c(::Ptr{p8est_t}, tid::p4est_topidx_t, q::Ptr{p8est_quadrant_t})::Cint
+        quadrant = QuadrantWrapper{8,Ptr{p8est_quadrant_t}}(q)
+        return weight(forest, tid + 0x1, quadrant)
+    end
+    @cfunction($c, Cint, (Ptr{p8est_t}, p4est_topidx_t, Ptr{p8est_quadrant_t}))
 end
 
 """
@@ -948,16 +1170,23 @@ function partition!(
         end
         (pxest_partition_lnodes(Val(X)))(forest, ghost, lnodes_degree, allow_for_coarsening)
     else
-        data = Ref((; forest, weight))
+        if cfunction_closure
+            weight_ =
+                isnothing(weight) ? C_NULL : generate_weight_closure(Val(X), weight, forest)
 
-        weight::Ptr{Cvoid} = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
+            (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight_)
+        else
+            weight_ = isnothing(weight) ? C_NULL : generate_weight_callback(Val(X))
 
-        GC.@preserve data begin
-            PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
+            data = Ref((; forest, weight))
 
-            (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight)
+            GC.@preserve data begin
+                PointerWrapper(forest.pointer).user_pointer = pointer_from_objref(data)
 
-            PointerWrapper(forest.pointer).user_pointer = C_NULL
+                (pxest_partition_ext(Val(X)))(forest, allow_for_coarsening, weight_)
+
+                PointerWrapper(forest.pointer).user_pointer = C_NULL
+            end
         end
     end
 
