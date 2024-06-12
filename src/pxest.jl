@@ -541,7 +541,7 @@ structure is preserved while using the return value.
     return unsafe_wrap(
         Vector{p4est_gloidx_t},
         pointer(fp.global_first_quadrant),
-        (fp.mpisize[] + 1,),
+        (fp.mpisize[] + 0x1,),
         own = false,
     )
 end
@@ -555,8 +555,8 @@ function iterate_volume_callback(info, _)
         data.forest,
         data.ghost,
         quadrant,
-        info.quadid[] + 1,
-        info.treeid[] + 1,
+        info.quadid[] + 0x1,
+        info.treeid[] + 0x1,
         data.userdata,
     )
     return
@@ -639,7 +639,7 @@ function init_callback(forest, treeid, quadrant)
 
     quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
 
-    data.init(data.forest, treeid + 1, quadrant)
+    data.init(data.forest, treeid + 0x1, quadrant)
 
     return
 end
@@ -665,7 +665,7 @@ function replace_callback(forest, treeid, num_outgoing, outgoing, num_incoming, 
     incoming = unsafe_wrap(Array, incoming, num_incoming)
     incoming = ntuple(i -> QuadrantWrapper{X,Ptr{Q}}(incoming[i]), num_incoming)
 
-    data.replace(data.forest, treeid + 1, outgoing, incoming)
+    data.replace(data.forest, treeid + 0x1, outgoing, incoming)
 
     return
 end
@@ -691,7 +691,7 @@ function coarsen_callback(forest, treeid, children)
 
     children = unsafe_wrap(Array, children, X)
     children = ntuple(i -> QuadrantWrapper{X,Ptr{Q}}(children[i]), Val(X))
-    return data.coarsen(data.forest, treeid + 1, children) ? one(Cint) : zero(Cint)
+    return data.coarsen(data.forest, treeid + 0x1, children) ? one(Cint) : zero(Cint)
 end
 
 @generated function generate_coarsen_callback(::Val{X}) where {X}
@@ -770,7 +770,7 @@ function refine_callback(forest, treeid, quadrant)
     Q = pxest_quadrant_t(Val(X))
 
     quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
-    return data.refine(data.forest, treeid + 1, quadrant) ? one(Cint) : zero(Cint)
+    return data.refine(data.forest, treeid + 0x1, quadrant) ? one(Cint) : zero(Cint)
 end
 
 @generated function generate_refine_callback(::Val{X}) where {X}
@@ -888,7 +888,7 @@ function weight_callback(forest, treeid, quadrant)
     Q = pxest_quadrant_t(Val(X))
 
     quadrant = QuadrantWrapper{X,Ptr{Q}}(quadrant)
-    return data.weight(data.forest, treeid + 1, quadrant)
+    return data.weight(data.forest, treeid + 0x1, quadrant)
 end
 
 @generated function generate_weight_callback(::Val{X}) where {X}
