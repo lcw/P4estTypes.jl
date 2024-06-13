@@ -1,6 +1,7 @@
 using MPI
 using MPIPreferences
 using P4estTypes
+using StableRNGs
 using Test
 
 if haskey(ENV, "P4ESTTYPES_TEST_BINARY")
@@ -10,6 +11,8 @@ end
 MPI.Init()
 
 const comm = MPI.COMM_WORLD
+
+const rng = StableRNG(37)
 
 let
     forest = pxest(brick(3, 4); comm)
@@ -40,7 +43,7 @@ let
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
     partition!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
-    partition!(forest; weight = (_...) -> rand((1, 2)))
+    partition!(forest; weight = (_...) -> rand(rng, (1, 2)))
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 24
 
     @test_nowarn P4estTypes.savevtk("basicbrick", forest)
@@ -76,7 +79,7 @@ let
     end
 
     function foo_init(_, treeid, quadrant)
-        data = Foo(treeid, rand(Float64), rand(Float32))
+        data = Foo(treeid, rand(rng, Float64), rand(rng, Float32))
         unsafe_storeuserdata!(quadrant, data)
         @test unsafe_loaduserdata(quadrant, Foo) == data
     end
@@ -106,7 +109,7 @@ let
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
     partition!(forest)
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
-    partition!(forest; weight = (_...) -> rand((1, 2)))
+    partition!(forest; weight = (_...) -> rand(rng, (1, 2)))
     @test MPI.Allreduce(sum(length.(forest)), +, comm) == 64
 
     function replace(_, _, outgoing, incoming)
