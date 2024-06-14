@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Usage · P4estTypes.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://lcw.github.io/P4estTypes.jl/usage/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">P4estTypes.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Usage</a><ul class="internal"><li><a class="tocitem" href="#Installation"><span>Installation</span></a></li><li><a class="tocitem" href="#Basic-example"><span>Basic example</span></a></li></ul></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><a class="tocitem" href="../refindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Usage</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Usage</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/lcw/P4estTypes.jl/blob/master/docs/src/usage.md#" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Usage"><a class="docs-heading-anchor" href="#Usage">Usage</a><a id="Usage-1"></a><a class="docs-heading-anchor-permalink" href="#Usage" title="Permalink"></a></h1><p>P4estTypes.jl is a high-level Julia interface to <a href="https://p4est.org">p4est</a> a distributed (via <a href="http://www.mpi-forum.org/">MPI</a>) forest-of-octrees C library. P4estTypes.jl uses the lower-level wrappers from <a href="https://github.com/trixi-framework/P4est.jl">P4est.jl</a> to interface with p4est.</p><h2 id="Installation"><a class="docs-heading-anchor" href="#Installation">Installation</a><a id="Installation-1"></a><a class="docs-heading-anchor-permalink" href="#Installation" title="Permalink"></a></h2><p>It is required to install <a href="http://github.com/JuliaParallel/MPI.jl">MPI.jl</a> alongside P4estTypes.jl.</p><pre><code class="language-julia hljs">julia&gt; using Pkg; Pkg.add([&quot;MPI&quot;, &quot;P4estTypes&quot;])</code></pre><p>This uses the default MPI library distributed with MPI.jl.  If you would like to use another MPI installation you need to make sure that MPI.jl points to the correct MPI installation.  P4est.jl must also point to a p4est C library compiled for the desired MPI installation.  Detailed instructions for doing this may be found <a href="https://github.com/trixi-framework/P4est.jl#installation">here</a>.</p><h2 id="Basic-example"><a class="docs-heading-anchor" href="#Basic-example">Basic example</a><a id="Basic-example-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-example" title="Permalink"></a></h2><p>Here we present a basic example of a forest-of-quadtrees distributed among 2 MPI ranks.  We will use <a href="https://github.com/Azrael3000/tmpi">tmpi</a> to interactively investigate the forest.  In practice MPI-based codes are launched in a non-interactive mode via <code>mpiexec</code>.</p><p>We create a project with MPI.jl and P4estTypes.jl and ensure everything is precompiled (we can run into trouble having multiple ranks trying to precompile at the same time).</p><pre><code class="language-sh hljs">julia --project=. -e &#39;using Pkg; Pkg.add([&quot;MPI&quot;, &quot;P4estTypes&quot;]); Pkg.API.precompile()&#39;</code></pre><p>We begin by launch an interactive session with 2 MPI ranks from our shell prompt.</p><pre><code class="language-sh hljs">$ tmpi 2 julia --project</code></pre><p>Next, we on both ranks we declare the packages we are using and initialize MPI. Importantly, MPI must be initialized before P4estTypes functions are called.</p><pre><code class="nohighlight hljs">julia&gt; using P4estTypes, MPI; MPI.Init();</code></pre><p>On each rank, a three element (in the x-direction) nonperiodic connectivity is constructed with</p><pre><code class="nohighlight hljs">julia&gt; conn = brick(3, 1)
+Connectivity{4}
+note: the following entries are zero-based
+
+trees:
+3-element reinterpret(reshape, NTuple{4, Int32}, ::Matrix{Int32}) with eltype NTuple{4, Int32}:
+ (0, 1, 2, 3)
+ (1, 4, 3, 5)
+ (4, 6, 5, 7)
+vertices:
+8-element reinterpret(reshape, Tuple{Float64, Float64, Float64}, ::Matrix{Float64}) with eltype Tuple{Float64, Float64, Float64}:
+ (0.0, 0.0, 0.0)
+ (1.0, 0.0, 0.0)
+ (0.0, 1.0, 0.0)
+ (1.0, 1.0, 0.0)
+ (2.0, 0.0, 0.0)
+ (2.0, 1.0, 0.0)
+ (3.0, 0.0, 0.0)
+ (3.0, 1.0, 0.0)
+tree to tree:
+3-element reinterpret(reshape, NTuple{4, Int32}, ::Matrix{Int32}) with eltype NTuple{4, Int32}:
+ (0, 1, 0, 0)
+ (0, 2, 1, 1)
+ (1, 2, 2, 2)
+tree to face:
+3-element reinterpret(reshape, NTuple{4, Int8}, ::Matrix{Int8}) with eltype NTuple{4, Int8}:
+ (0, 0, 2, 3)
+ (1, 0, 2, 3)
+ (1, 1, 2, 3)
+tree to corner:
+0-element reinterpret(reshape, NTuple{4, Int32}, ::Matrix{Int32}) with eltype NTuple{4, Int32}
+corners:
+3×0 SparseArrays.SparseMatrixCSC{Int8, Int64} with 0 stored entries</code></pre><p>The REPL shows the underlying data stored for this connectivity (note that it is zero-based).</p><p>Next we can construct a uniform forest with 1 level of refinement from this connectivity.  We now show the REPL output of each rank individually as the output is different.</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output building the forest</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest = pxest(conn; min_level=1)
+Forest{4} with 3 trees.
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 2 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 0).
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output building the forest</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest = pxest(conn; min_level=1)
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 2 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>The forest is an array-of-arrays data structure containing all the quadrants. Note that each rank stores only the quadrants in its rank-local domain.</p><p>Above, we see that rank 0 has an array for each tree in <code>conn</code> but only some of those arrays have <code>Quadrants</code> in them.  Specifically, all of the quadrants from tree 1 and half of the quadrants from tree 2.  Rank 1 contains the remaining quadrants.  The coordinates of the quadrants are given in tree-local integer coordinates.</p><p>We can get a visual representation of the forest by saving VTK files and viewing them in <a href="https://paraview.org">Paraview</a>.  Running</p><pre><code class="nohighlight hljs">julia&gt; savevtk(&quot;initialforest&quot;, forest)</code></pre><p>generates one <code>.vtu</code> file for each rank, here <code>initialforest_0000.vtu</code> and <code>initialforest_0001.vtu</code>, and the collections file <code>initialforest.pvtu</code> and <code>initialforest.visit</code>.</p><p>We currently have the sibling quadrants (quadrants that have the same parent) in tree 2 distributed among both ranks.  We are not able to coarsen siblings that live on different ranks.  So we may want to partition the mesh in a way that keeps siblings together.  This can be done with</p><pre><code class="nohighlight hljs">julia&gt; partition!(forest; allow_for_coarsening=true)</code></pre><p>We now show the mesh on each rank.</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output of the newly partitioned mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output of the newly partitioned mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 0 quadrants.
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>Rank 0 gets the first 2 sibling groups and rank 1 gets the other.</p><p>We can now coarsen the elements in tree 2 with</p><pre><code class="nohighlight hljs">julia&gt; coarsen!(forest; coarsen = (_, treeid, _) -&gt; treeid == 2 )</code></pre><p>which gives the distribution</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output of the coarsened mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 1 quadrants.
+│  └─ Quadrant{4}: level 0, coordinates (0, 0).
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output of the coarsened mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 0 quadrants.
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>We see that tree 2 only has 1 quadrant now at the root of the tree.</p><p>We are now going to refine the quadrant in tree 1 with coordinates <code>(536870912, 0)</code> with</p><pre><code class="nohighlight hljs">julia&gt; refine!(forest;
+               refine = (_, treeid, quad) -&gt; treeid == 1 &amp;&amp;
+                                             coordinates(quad) == (536870912, 0)
+              )</code></pre><p>which gives</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output of the refined mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 7 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 268435456).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 268435456).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 1 quadrants.
+│  └─ Quadrant{4}: level 0, coordinates (0, 0).
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output of the refined mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 0 quadrants.
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>We see that we have level 2 elements now in tree 1.  These neighbor the level 0 element in tree 2.  The mesh is unbalanced because there are quadrants differing by more than one level that share an edge.  We bring this back to a 1 level difference by enforcing the 2-to-1 constraint with</p><pre><code class="nohighlight hljs">julia&gt; balance!(forest)</code></pre><p>which gives</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output of the balanced mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 7 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 268435456).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 268435456).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output of the balanced mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 0 quadrants.
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>There are now 11 quadrants on rank 0 and 4 on rank 1.  We can more evenly distribute the quadrants with</p><pre><code class="nohighlight hljs">julia&gt; partition!(forest; allow_for_coarsening=true)</code></pre><p>which gives</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output of the partitioned mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 7 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 0).
+│  ├─ Quadrant{4}: level 2, coordinates (536870912, 268435456).
+│  ├─ Quadrant{4}: level 2, coordinates (805306368, 268435456).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+├─ Tree{4} with 0 quadrants.
+└─ Tree{4} with 0 quadrants.</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output of the partitioned mesh</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest
+Forest{4} with 3 trees.
+├─ Tree{4} with 0 quadrants.
+├─ Tree{4} with 4 quadrants.
+│  ├─ Quadrant{4}: level 1, coordinates (0, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+│  ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+│  └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).
+└─ Tree{4} with 4 quadrants.
+   ├─ Quadrant{4}: level 1, coordinates (0, 0).
+   ├─ Quadrant{4}: level 1, coordinates (536870912, 0).
+   ├─ Quadrant{4}: level 1, coordinates (0, 536870912).
+   └─ Quadrant{4}: level 1, coordinates (536870912, 536870912).</code></pre></div></div><p>This is a more even partitioning with 7 quadrants on rank 0 and 8 quadrants on rank 2.</p><p>Now that we have the forest adapted as desired we would like to access the quadrants of the forest.  There are currently two API for doing this.  The first is the arrays-of-arrays approach.  Let&#39;s get the 2nd quadrant in tree 1.</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output accessing 2nd quadrant in tree 1</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest[1][2]
+Quadrant{4}: level 2, coordinates (536870912, 0).</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output accessing 2nd quadrant in tree 1</header><div class="admonition-body"><pre><code class="nohighlight hljs">julia&gt; forest[1][2]
+ERROR: BoundsError: attempt to access 0-element P4estTypes.Tree{4, Nothing, Ptr{P4est.LibP4est.p4est_tree}, Pxest{4, Nothing, Ptr{P4est.LibP4est.p4est}, Connectivity{4, Ptr{P4est.LibP4est.p4est_connectivity}}}} at index [2]
+Stacktrace:
+ [1] throw_boundserror(A::P4estTypes.Tree{4, Nothing, Ptr{P4est.LibP4est.p4est_tree}, Pxest{4, Nothing, Ptr{P4est.LibP4est.p4est}, Connectivity{4, Ptr{P4est.LibP4est.p4est_connectivity}}}}, I::Tuple{Int64})
+   @ Base ./abstractarray.jl:744
+ [2] checkbounds
+   @ ./abstractarray.jl:709 [inlined]
+ [3] getindex(t::P4estTypes.Tree{4, Nothing, Ptr{P4est.LibP4est.p4est_tree}, Pxest{4, Nothing, Ptr{P4est.LibP4est.p4est}, Connectivity{4, Ptr{P4est.LibP4est.p4est_connectivity}}}}, i::Int64)
+   @ P4estTypes ~/research/code/julia/P4estTypes/src/pxest.jl:315
+ [4] top-level scope
+   @ REPL[35]:1</code></pre><p>We get an error message here because rank 1 doesn&#39;t have any elements in tree 1.</p></div></div><p>We can also access the quadrants through the p4est iterator function, <a href="../reference/#P4estTypes.iterateforest-Union{Tuple{Pxest{X}}, Tuple{X}} where X"><code>iterateforest</code></a>.  This function iterates over the volumes, faces, edges, and corners of the forest via callback functions.  To show the quadrants with tree coordinates <code>(0, 0)</code> we can run</p><pre><code class="nohighlight hljs">julia&gt; iterateforest(forest;
+                     volume = (_, _, quad, _, treeid, _) -&gt;
+                         (coordinates(quad) == (0, 0) &amp;&amp;
+                          (@show (treeid, quad))))</code></pre><p>to print</p><div class="admonition is-category-output"><header class="admonition-header">Rank 0 output calling `iterateforest`</header><div class="admonition-body"><pre><code class="nohighlight hljs">(treeid, quad) = (1, Quadrant{4}: level 1, coordinates (0, 0).)</code></pre></div></div><div class="admonition is-category-output"><header class="admonition-header">Rank 1 output calling `iterateforest`</header><div class="admonition-body"><pre><code class="nohighlight hljs">(treeid, quad) = (2, Quadrant{4}: level 1, coordinates (0, 0).)
+(treeid, quad) = (3, Quadrant{4}: level 1, coordinates (0, 0).)</code></pre></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Monday 5 June 2023 23:04">Monday 5 June 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
